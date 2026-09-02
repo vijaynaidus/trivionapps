@@ -1,0 +1,18 @@
+{
+  "name": "trivion-apps",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node build-site.js",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "docx": "^9.7.1",
+    "pdf-parse": "^2.4.5"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+outputs/
+work/
+site-stage-*/
+trivion-site-*.tar.gz
+*.log
