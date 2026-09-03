@@ -15,7 +15,12 @@ try {
   for (const file of await readdir("dist/assets")) {
     if (!file.endsWith(".jpg") && !file.endsWith(".png")) continue;
     const bytes = await readFile(`dist/assets/${file}`);
-    assets[`/assets/${file}`] = bytes.toString("base64");
+    const encoded = bytes.toString("base64");
+    assets[`/assets/${file}`] = encoded;
+
+    // The source HTML uses stable preview paths while Vite emits hashed files.
+    const previewName = file.replace(/-[^/]+(?=\.(?:jpg|png)$)/, "");
+    assets[`/assets/app-previews/${previewName}`] = encoded;
   }
 } catch {
   // The site can still deploy without optional preview assets.
