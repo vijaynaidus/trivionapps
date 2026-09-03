@@ -47,7 +47,7 @@ export default {
       const bytes = Uint8Array.from(atob(assets[url.pathname]), character => character.charCodeAt(0));
       return new Response(bytes, {
         headers: {
-        "content-type": fileType(url.pathname),
+        "content-type": url.pathname.endsWith(".png") ? "image/png" : "image/jpeg",
           "cache-control": "public, max-age=31536000, immutable"
         }
       });
