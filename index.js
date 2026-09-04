@@ -57,11 +57,14 @@ const html = `<!doctype html>
     .hero{padding:28px 0 18px;position:relative}
     .hero-card{
       position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.65);border-radius:42px;color:#fff;
-      background:linear-gradient(135deg,rgba(7,17,28,.98),rgba(10,22,39,.97) 56%,rgba(15,34,58,.96));box-shadow:var(--shadow-strong)
+      background:radial-gradient(circle at var(--hero-x,78%) var(--hero-y,20%),rgba(137,200,255,.2),transparent 28%),linear-gradient(135deg,rgba(7,17,28,.98),rgba(10,22,39,.97) 56%,rgba(15,34,58,.96));box-shadow:var(--shadow-strong);isolation:isolate
     }
     .hero-card::before,.hero-card::after{content:"";position:absolute;border-radius:50%;pointer-events:none;filter:blur(28px)}
     .hero-card::before{width:760px;height:760px;right:-220px;top:-280px;background:radial-gradient(circle,rgba(137,200,255,.24),transparent 60%)}
     .hero-card::after{width:540px;height:540px;left:-180px;bottom:-280px;background:radial-gradient(circle,rgba(118,240,198,.12),transparent 62%)}
+    .ambient-field{position:absolute;inset:0;z-index:0;opacity:.75;background-image:radial-gradient(circle at 12% 22%,rgba(255,255,255,.8) 0 1px,transparent 1.5px),radial-gradient(circle at 72% 18%,rgba(139,199,255,.8) 0 1px,transparent 1.5px),radial-gradient(circle at 88% 72%,rgba(118,240,198,.7) 0 1px,transparent 1.5px),radial-gradient(circle at 42% 78%,rgba(255,255,255,.6) 0 1px,transparent 1.5px);background-size:180px 180px,240px 240px,220px 220px,310px 310px;animation:drift 22s linear infinite}
+    .ambient-field::before,.ambient-field::after{content:"";position:absolute;border:1px solid rgba(137,200,255,.12);border-radius:50%;transform:rotate(-18deg);animation:orbit 18s ease-in-out infinite}
+    .ambient-field::before{width:52%;height:125%;right:-15%;top:-18%}.ambient-field::after{width:42%;height:90%;left:-12%;bottom:-18%;animation-delay:-8s}
     .hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:1.06fr .94fr;gap:34px;padding:40px 40px 30px;align-items:center}
     .eyebrow{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);letter-spacing:.16em;text-transform:uppercase;font-size:.72rem;color:#b7d8ff}
     .eyebrow::before{content:"";width:28px;height:1px;background:currentColor}
@@ -142,8 +145,9 @@ const html = `<!doctype html>
       border:1px solid rgba(255,255,255,.76);background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,255,.92));
       box-shadow:var(--shadow);transition:transform .35s ease,box-shadow .35s ease,border-color .35s ease
     }
-    .app::before{content:"";position:absolute;inset:-30px -40px auto auto;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(137,200,255,.16),transparent 68%);pointer-events:none}
-    .app:hover{box-shadow:0 30px 90px rgba(6,18,36,.15);border-color:rgba(137,200,255,.4)}
+    .app::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at var(--mx,88%) var(--my,8%),rgba(137,200,255,.24),transparent 30%);pointer-events:none;opacity:.8;transition:opacity .35s ease}
+    .app::after{content:"";position:absolute;inset:1px;border-radius:27px;border:1px solid transparent;background:linear-gradient(135deg,rgba(137,200,255,.45),transparent 28%,transparent 68%,rgba(118,240,198,.25)) border-box;mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:0;transition:opacity .35s ease;pointer-events:none}
+    .app:hover{box-shadow:0 30px 90px rgba(6,18,36,.15);border-color:rgba(137,200,255,.4)}.app:hover::after{opacity:1}
     .app-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
     .app-num{font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:#7d8799}
     .app-type{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
@@ -166,7 +170,7 @@ const html = `<!doctype html>
     .footer-links{display:flex;gap:18px;flex-wrap:wrap}
     .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}.reveal.visible{opacity:1;transform:none}
     .hidden{display:none!important}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    @keyframes shimmer{to{background-position:220% center}}
+    @keyframes shimmer{to{background-position:220% center}}@keyframes drift{to{background-position:180px 40px,240px -70px,150px 220px,310px -110px}}@keyframes orbit{50%{transform:rotate(18deg) scale(1.04);opacity:.65}}
     @media (max-width: 1024px){
       .hero-grid,.featured,.ecosystem-grid,.story-grid,.contact-grid{grid-template-columns:1fr}
       .nav-links{display:none}.app{grid-column:span 6}.hero-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -202,6 +206,7 @@ const html = `<!doctype html>
   <main id="top">
     <section class="hero shell">
       <div class="hero-card">
+        <div class="ambient-field" aria-hidden="true"></div>
         <div class="hero-grid">
           <div class="hero-copy reveal">
             <span class="eyebrow">A premium home for the Trivion ecosystem</span>
@@ -428,6 +433,12 @@ const html = `<!doctype html>
         applyFilter();
       }));
       search.addEventListener('input', applyFilter);
+      const hero = document.querySelector('.hero-card');
+      hero?.addEventListener('pointermove', event => {
+        const rect = hero.getBoundingClientRect();
+        hero.style.setProperty('--hero-x', `${(event.clientX - rect.left) / rect.width * 100}%`);
+        hero.style.setProperty('--hero-y', `${(event.clientY - rect.top) / rect.height * 100}%`);
+      });
       document.addEventListener('keydown', event => {
         if (event.key === '/' && !/input|textarea|select/i.test(document.activeElement.tagName)) {
           event.preventDefault();
