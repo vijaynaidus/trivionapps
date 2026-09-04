@@ -3,205 +3,622 @@ const html = `<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Trivion Apps | Premium AI Product Studio</title>
-  <meta name="description" content="Trivion Apps showcases six polished AI and digital products in one premium portfolio experience." />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' stop-color='%237c3aed'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)'/%3E%3Cpath d='M18 20h28l-9.5 12.5L37 44H27l.5-11.5z' fill='white'/%3E%3C/svg%3E" />
+  <title>Trivion Apps | Premium Product Ecosystem</title>
+  <meta name="description" content="Trivion Apps is a polished portfolio of 12 intelligent products for finance, wellness, collaboration, operations, and data." />
+  <meta name="theme-color" content="#07111c" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%238bc7ff'/%3E%3Cstop offset='100%25' stop-color='%23ffffff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='%2307111c'/%3E%3Cpath d='M17 18h30L34 31.5 39 46H25l2-13.5z' fill='url(%23g)'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #f3f7ff;
-      --surface: rgba(255,255,255,0.96);
-      --line: rgba(33,49,82,.10);
-      --text: #13233d;
-      --muted: rgba(19,35,61,.70);
-      --gold: #d08a1e;
-      --blue: #2563eb;
-      --rose: #db2777;
-      --green: #10b981;
-      --violet: #7c3aed;
-      --slate: #64748b;
-      font-synthesis-weight: none;
+    :root{
+      --bg:#f4f7fb;
+      --bg-2:#eaf1ff;
+      --surface:rgba(255,255,255,.78);
+      --surface-strong:rgba(255,255,255,.95);
+      --text:#08101c;
+      --muted:#5a6780;
+      --line:rgba(8,16,28,.1);
+      --line-2:rgba(139,199,255,.28);
+      --ink:#07111c;
+      --brand:#8bc7ff;
+      --brand-2:#f2d99c;
+      --accent:#76f0c6;
+      --shadow:0 22px 80px rgba(6,18,36,.12);
+      --shadow-strong:0 30px 100px rgba(6,18,36,.18);
+      --radius-xl:34px;
+      --radius-lg:26px;
+      --radius-md:18px;
+      color-scheme:light;
     }
     *{box-sizing:border-box}
     html{scroll-behavior:smooth}
     body{
-      margin:0;font-family:Manrope,system-ui,sans-serif;color:var(--text);
-      background: radial-gradient(circle at top left, rgba(37,99,235,.12), transparent 24%),
-                  radial-gradient(circle at top right, rgba(124,58,237,.12), transparent 24%),
-                  linear-gradient(180deg,#fff 0%,#f6f9ff 36%,#edf3ff 100%);
+      margin:0;
+      font-family:"Manrope",system-ui,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 8%,rgba(139,199,255,.22),transparent 24%),
+        radial-gradient(circle at 88% 14%,rgba(118,240,198,.12),transparent 20%),
+        radial-gradient(circle at 50% 0%,rgba(242,217,156,.16),transparent 28%),
+        linear-gradient(180deg,#ffffff 0%,var(--bg) 40%,#edf3ff 100%);
+      overflow-x:hidden;
     }
-    .page-shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:24px 0 56px}
-    .hero,.section,.app-card,.quote-card,.detail-card,.panel-card,.panel-metrics{
-      backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)
+    a{color:inherit;text-decoration:none}
+    button,input{font:inherit}
+    ::selection{background:var(--brand);color:#03101b}
+    .shell{width:min(1220px,calc(100% - 32px));margin:0 auto}
+    .skip-link{
+      position:absolute;left:-999px;top:12px;padding:12px 16px;border-radius:999px;background:var(--ink);color:#fff;z-index:100
     }
-    .hero{border:1px solid var(--line);background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(248,251,255,.96));border-radius:32px;padding:24px;box-shadow:0 20px 50px rgba(29,55,105,.08)}
-    .topbar,.brand,.hero-grid,.hero-stats,.card-head,.card-links,.section,.split,.panel-metrics{display:flex}
-    .topbar,.hero-grid,.section,.split{justify-content:space-between}
-    .topbar,.card-head,.card-links,.hero-stats,.panel-metrics{align-items:center}
-    .brand{gap:14px;align-items:center}
-    .brand-mark{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-weight:800;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed);box-shadow:0 10px 24px rgba(37,99,235,.22)}
-    .brand p,.brand span{margin:0}
-    .brand p{font-weight:800;letter-spacing:.03em}
-    .brand span{color:var(--muted);font-size:.9rem}
-    .nav-cta,.primary-btn,.secondary-btn,.card-links a{text-decoration:none;border-radius:999px}
-    .nav-cta,.secondary-btn,.card-links a{color:var(--text);border:1px solid var(--line);background:rgba(255,255,255,.98)}
-    .nav-cta{padding:12px 18px}
-    .hero-grid{gap:30px;margin-top:40px;align-items:stretch}
-    .hero-copy{flex:1.2}
-    .hero-panel{flex:.8;display:grid;gap:16px}
-    .eyebrow,.section-tag,.panel-label{text-transform:uppercase;letter-spacing:.16em;font-size:.72rem;color:var(--gold)}
-    h1,h2,h3{font-family:Georgia,serif;margin:0;line-height:1.02}
-    h1{font-size:clamp(3rem,7vw,5.8rem);max-width:10ch;margin-top:18px}
-    .lede{color:var(--muted);font-size:1.05rem;line-height:1.8;max-width:62ch;margin:22px 0 0}
-    .hero-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:28px}
-    .primary-btn,.secondary-btn{padding:14px 20px;font-weight:700}
-    .primary-btn{color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed);box-shadow:0 14px 24px rgba(37,99,235,.22)}
-    .secondary-btn{color:#1f3a68;background:rgba(255,255,255,.94)}
-    .hero-stats{gap:28px;margin-top:34px;flex-wrap:wrap}
-    .hero-stats div{min-width:140px;padding-top:14px;border-top:1px solid var(--line)}
-    .hero-stats strong{display:block;font-size:1.7rem}
-    .hero-stats span,.panel-metrics span,.app-card p,.section p,li{color:var(--muted)}
-    .panel-card,.panel-metrics,.app-card,.quote-card,.detail-card{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(248,250,255,.95));border-radius:24px}
-    .panel-card{padding:22px}
-    .spotlight h2{font-size:2rem;margin-top:10px}
-    .spotlight p{color:var(--muted);line-height:1.7}
-    .showcase{margin-top:18px;display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
-    .showcase-card{grid-column:span 6;border:1px solid var(--line);border-radius:26px;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,255,.94));padding:18px;overflow:hidden;position:relative}
-    .showcase-card::before{content:"";position:absolute;inset:-30px auto auto -30px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle, rgba(37,99,235,.10), transparent 70%)}
-    .showcase-card .top{display:flex;justify-content:space-between;align-items:center;gap:12px;position:relative;z-index:1}
-    .showcase-card .chip{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-    .mock-window{margin-top:16px;border-radius:20px;border:1px solid rgba(33,49,82,.10);background:linear-gradient(180deg,#0f172a,#1e293b);padding:14px;min-height:170px;position:relative;overflow:hidden}
-    .mock-window.light{background:linear-gradient(180deg,#f8fbff,#e9f1ff)}
-    .window-bar{display:flex;gap:8px;margin-bottom:14px}
-    .window-bar span{width:10px;height:10px;border-radius:999px;background:rgba(255,255,255,.35)}
-    .light .window-bar span{background:rgba(19,35,61,.16)}
-    .window-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;height:132px}
-    .panel{border-radius:16px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14)}
-    .light .panel{background:rgba(255,255,255,.82);border-color:rgba(33,49,82,.08)}
-    .panel.big{padding:14px;display:flex;flex-direction:column;justify-content:space-between}
-    .hero-line{height:12px;border-radius:999px;background:linear-gradient(90deg,rgba(255,255,255,.88),rgba(255,255,255,.25));max-width:72%}
-    .light .hero-line{background:linear-gradient(90deg,rgba(37,99,235,.20),rgba(37,99,235,.06))}
-    .hero-line.small{max-width:46%;height:10px}
-    .stack{display:grid;gap:10px}
-    .stat-row{display:flex;gap:10px}
-    .stat{flex:1;height:52px;border-radius:14px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12)}
-    .light .stat{background:rgba(255,255,255,.88);border-color:rgba(33,49,82,.08)}
-    .window-footer{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
-    .pill{padding:8px 12px;border-radius:999px;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.84)}
-    .light .pill{background:#fff;border-color:rgba(33,49,82,.08);color:var(--text)}
-    .panel-metrics{justify-content:space-between;gap:16px;padding:18px 22px}
-    .panel-metrics div{flex:1}
-    .panel-metrics strong{display:block;margin-top:6px}
-    main{margin-top:24px}
-    .section{gap:26px;padding:18px 4px;align-items:center}
-    .intro h2,.quote-card h2{font-size:clamp(2rem,4vw,3.2rem);max-width:14ch}
-    .intro p,.quote-card p,.detail-card li{line-height:1.8}
-    .portfolio{display:grid;grid-template-columns:repeat(12,1fr);gap:18px;margin-top:18px}
-    .app-card{grid-column:span 4;padding:22px;min-height:248px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
-    .app-card::after{content:"";position:absolute;inset:auto -30px -40px auto;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle, rgba(37,99,235,.08), transparent 70%)}
-    .card-head{gap:10px;justify-content:space-between;margin-bottom:18px}
-    .app-index{color:rgba(18,32,51,.45);font-size:.9rem}
-    .app-type{font-size:.76rem;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
-    .app-card h3{font-size:2rem;margin-bottom:10px}
-    .app-card p{max-width:34ch}
-    .card-links{gap:12px;flex-wrap:wrap;margin-top:22px}
-    .card-links a{padding:10px 14px;font-weight:700}
-    .accent-gold{box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 0 0 1px rgba(139,107,42,.10)}
-    .accent-blue{box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 0 0 1px rgba(37,99,235,.14)}
-    .accent-rose{box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 0 0 1px rgba(160,76,109,.10)}
-    .accent-green{box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 0 0 1px rgba(16,185,129,.14)}
-    .accent-slate{box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 0 0 1px rgba(100,116,139,.10)}
-    .accent-violet{box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 0 0 1px rgba(124,58,237,.14)}
-    .split{gap:18px;margin-top:18px}
-    .quote-card,.detail-card{flex:1;padding:24px}
-    .detail-card ul{margin:12px 0 0;padding-left:18px}
-    .detail-card li{margin-bottom:12px}
-    .contact-strip{margin-top:18px;padding:18px 22px;border:1px solid var(--line);border-radius:24px;background:linear-gradient(135deg,rgba(37,99,235,.06),rgba(124,58,237,.05))}
-    .contact-strip strong{display:block;font-size:1rem;margin-bottom:6px}
-    .contact-strip span{color:var(--muted)}
-    @media (max-width:980px){.hero-grid,.section,.split{flex-direction:column}.app-card{grid-column:span 6}.showcase{grid-template-columns:1fr}.showcase-card{grid-column:span 12}}
-    @media (max-width:680px){.page-shell{width:min(100% - 20px,1180px);padding-top:10px}.hero{border-radius:24px;padding:18px}.topbar{gap:16px;align-items:flex-start;flex-direction:column}.hero-grid{margin-top:28px}.hero-stats{gap:16px}.app-card{grid-column:span 12}.window-grid{grid-template-columns:1fr}h1{max-width:12ch}}
+    .skip-link:focus{left:16px}
+    .grain{
+      position:fixed;inset:0;pointer-events:none;opacity:.03;mix-blend-mode:multiply;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      z-index:30
+    }
+    .scroll-progress{position:fixed;left:0;top:0;height:3px;width:0;z-index:90;background:linear-gradient(90deg,var(--brand),#ffffff,var(--brand-2));box-shadow:0 0 18px rgba(139,199,255,.8)}
+    .nav{
+      position:sticky;top:0;z-index:80;
+      backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+      background:rgba(245,248,255,.72);border-bottom:1px solid rgba(8,16,28,.06)
+    }
+    .nav-inner{
+      min-height:80px;display:flex;align-items:center;justify-content:space-between;gap:18px
+    }
+    .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:-.03em}
+    .brand-mark{
+      width:44px;height:44px;border-radius:15px;display:grid;place-items:center;
+      color:#fff;background:linear-gradient(145deg,#0a1526,#183b61 48%,#8bc7ff);box-shadow:0 12px 34px rgba(8,16,28,.22)
+    }
+    .brand small{display:block;color:var(--muted);font-size:.82rem;font-weight:600;letter-spacing:.04em}
+    .nav-links{display:flex;gap:20px;align-items:center;color:var(--muted);font-size:.92rem}
+    .nav-links a:hover{color:var(--text)}
+    .nav-actions{display:flex;align-items:center;gap:10px}
+    .ghost,.solid,.outline{
+      display:inline-flex;align-items:center;justify-content:center;gap:10px;border-radius:999px;
+      padding:13px 18px;font-weight:700;transition:transform .28s ease,box-shadow .28s ease,background .28s ease,border-color .28s ease
+    }
+    .ghost,.outline{border:1px solid var(--line);background:rgba(255,255,255,.7);color:var(--text)}
+    .solid{background:linear-gradient(135deg,#0b1628,#183558 55%,#0b1628);color:#fff;box-shadow:0 14px 26px rgba(8,16,28,.14)}
+    .solid:hover,.outline:hover,.ghost:hover,.app-link:hover,.nav-links a:hover{transform:translateY(-2px)}
+    .hero{padding:28px 0 22px;position:relative}
+    .hero-card{
+      position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.65);border-radius:40px;
+      background:linear-gradient(135deg,rgba(7,17,28,.98),rgba(11,26,44,.96) 55%,rgba(15,33,57,.96));
+      color:#fff;box-shadow:var(--shadow-strong)
+    }
+    .hero-card::before,.hero-card::after{
+      content:"";position:absolute;border-radius:50%;pointer-events:none;filter:blur(28px)
+    }
+    .hero-card::before{width:720px;height:720px;right:-200px;top:-260px;background:radial-gradient(circle,rgba(139,199,255,.24),transparent 60%)}
+    .hero-card::after{width:560px;height:560px;left:-160px;bottom:-260px;background:radial-gradient(circle,rgba(118,240,198,.12),transparent 64%)}
+    .hero-grid{
+      position:relative;z-index:1;display:grid;grid-template-columns:1.08fr .92fr;gap:34px;
+      padding:38px 38px 28px;align-items:center
+    }
+    .eyebrow{
+      display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);letter-spacing:.16em;
+      text-transform:uppercase;font-size:.72rem;color:#b5d8ff
+    }
+    .eyebrow::before{content:"";width:28px;height:1px;background:currentColor}
+    h1,h2,h3{font-family:"Fraunces",Georgia,serif;line-height:1}
+    h1{
+      margin:22px 0 18px;font-size:clamp(3.3rem,7.8vw,7.2rem);letter-spacing:-.07em;max-width:9.5ch
+    }
+    h1 em{
+      font-style:normal;background:linear-gradient(90deg,#8bc7ff,#ffffff,#76f0c6,#ffffff);
+      -webkit-background-clip:text;background-clip:text;color:transparent;background-size:220% auto;
+      animation:shimmer 7s linear infinite
+    }
+    .lede{margin:0;max-width:62ch;font-size:1.08rem;line-height:1.85;color:#d9e8f7}
+    .hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
+    .hero-meta{
+      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:30px;max-width:720px
+    }
+    .metric{
+      padding:16px 16px 15px;border-radius:22px;background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(12px)
+    }
+    .metric strong{display:block;font-size:1.35rem;letter-spacing:-.03em}
+    .metric span{display:block;margin-top:5px;color:#c8d8e7;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase}
+    .hero-side{
+      display:grid;gap:16px;align-content:center;position:relative
+    }
+    .display{
+      min-height:360px;border-radius:30px;padding:18px;background:
+        linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)
+    }
+    .display-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;color:#bed7ee;font-size:.8rem;text-transform:uppercase;letter-spacing:.18em}
+    .display-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:14px;min-height:286px}
+    .glass{
+      border-radius:24px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);overflow:hidden;position:relative
+    }
+    .glass::before{
+      content:"";position:absolute;inset:0;background:linear-gradient(145deg,rgba(255,255,255,.14),transparent 40%,rgba(139,199,255,.08));
+      pointer-events:none
+    }
+    .glass-main{padding:18px;display:flex;flex-direction:column;justify-content:space-between}
+    .live-lines{display:grid;gap:11px}
+    .line,.line-sm,.line-xs{
+      height:14px;border-radius:999px;background:linear-gradient(90deg,rgba(255,255,255,.92),rgba(255,255,255,.24))
+    }
+    .line-sm{max-width:72%}
+    .line-xs{max-width:46%;height:10px}
+    .chip-row{display:flex;gap:9px;flex-wrap:wrap}
+    .chip{
+      font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;padding:8px 11px;border-radius:999px;
+      background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#d4e7f7
+    }
+    .stack{display:grid;gap:14px}
+    .stack-card{padding:16px;border-radius:22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1)}
+    .stack-card strong{display:block;font-size:1.2rem}
+    .stack-card span{display:block;margin-top:8px;color:#c9dceb;font-size:.88rem;line-height:1.45}
+    .floating-notes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .note{
+      padding:14px 15px;border-radius:20px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#d6e8f8
+    }
+    .note strong{display:block;font-size:.86rem}
+    .note span{display:block;margin-top:6px;color:#b9d2e8;font-size:.74rem;text-transform:uppercase;letter-spacing:.08em}
+    .overview{
+      position:relative;margin-top:-18px;z-index:2
+    }
+    .overview-card{
+      padding:18px;border-radius:28px;border:1px solid var(--line);background:var(--surface);backdrop-filter:blur(18px);box-shadow:var(--shadow);
+    }
+    .overview-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+    .overview-top p{margin:0;color:var(--muted);max-width:70ch;line-height:1.7}
+    .search-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:18px}
+    .search{
+      flex:1;min-width:260px;display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:18px;
+      border:1px solid var(--line);background:rgba(255,255,255,.86)
+    }
+    .search input{
+      width:100%;border:0;outline:none;background:transparent;color:var(--text);font-size:1rem
+    }
+    .search kbd{
+      padding:5px 7px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--muted);font-size:.72rem
+    }
+    .filters{display:flex;gap:8px;flex-wrap:wrap}
+    .filter{
+      padding:11px 14px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.84);color:var(--muted);cursor:pointer
+    }
+    .filter.active{background:var(--ink);color:#fff;border-color:transparent}
+    .count{min-width:146px;padding:12px 14px;border-radius:18px;background:linear-gradient(135deg,rgba(139,199,255,.18),rgba(118,240,198,.12));border:1px solid rgba(139,199,255,.3)}
+    .count strong{display:block;font-size:1.3rem}
+    .count span{display:block;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.08em}
+    .featured{
+      margin-top:20px;display:grid;grid-template-columns:1fr 360px;gap:16px
+    }
+    .spotlight{
+      border-radius:28px;padding:22px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(248,251,255,.85));box-shadow:var(--shadow)
+    }
+    .spotlight label,.standard span,.story span{display:block;text-transform:uppercase;letter-spacing:.16em;font-size:.72rem;color:#7a879d}
+    .spotlight h2{margin:12px 0 12px;font-size:clamp(2rem,4.4vw,3.8rem);max-width:10ch;letter-spacing:-.06em}
+    .spotlight p{margin:0;color:var(--muted);line-height:1.8;max-width:58ch}
+    .spotlight-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:18px}
+    .spotlight-actions a{display:inline-flex;align-items:center;gap:8px}
+    .orb{
+      position:relative;overflow:hidden;border-radius:28px;padding:22px;border:1px solid var(--line);background:
+        radial-gradient(circle at 50% 35%,rgba(139,199,255,.35),transparent 28%),
+        radial-gradient(circle at 65% 65%,rgba(118,240,198,.14),transparent 28%),
+        linear-gradient(180deg,#f8fbff,#e7efff)
+    }
+    .orb::before,.orb::after{content:"";position:absolute;border-radius:50%}
+    .orb::before{inset:16% 18%;border:1px solid rgba(7,17,28,.12)}
+    .orb::after{inset:28% 30%;border:1px solid rgba(7,17,28,.08)}
+    .orb-core{
+      position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:46%;aspect-ratio:1;border-radius:32px;
+      display:grid;place-items:center;background:linear-gradient(145deg,#07111c,#183556 55%,#8bc7ff);color:#fff;font-family:"Fraunces",serif;font-size:clamp(1.8rem,4vw,3rem);box-shadow:0 24px 60px rgba(8,16,28,.24)
+    }
+    .orb-tag{
+      position:absolute;padding:11px 13px;border-radius:16px;background:rgba(255,255,255,.78);border:1px solid rgba(7,17,28,.08);backdrop-filter:blur(16px);font-size:.74rem;color:var(--muted)
+    }
+    .orb-tag b{display:block;color:var(--text);font-size:.9rem;margin-bottom:4px}
+    .orb-tag.one{left:14px;top:16px}
+    .orb-tag.two{right:14px;top:34%}
+    .orb-tag.three{left:18px;bottom:14px}
+    .apps-section{padding:26px 0 6px}
+    .section-head{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap;margin-bottom:18px}
+    .section-head h2{margin:0;font-size:clamp(2.4rem,5vw,4.8rem);letter-spacing:-.06em}
+    .section-head p{margin:0;color:var(--muted);max-width:48ch;line-height:1.7}
+    .apps{
+      display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:18px;margin-top:16px
+    }
+    .app{
+      grid-column:span 4;min-height:280px;padding:22px;border-radius:28px;position:relative;overflow:hidden;
+      border:1px solid rgba(255,255,255,.7);background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,255,.92));
+      box-shadow:var(--shadow);transition:transform .35s ease,box-shadow .35s ease,border-color .35s ease
+    }
+    .app::before{
+      content:"";position:absolute;inset:-30px -40px auto auto;width:160px;height:160px;border-radius:50%;
+      background:radial-gradient(circle,rgba(139,199,255,.16),transparent 68%);pointer-events:none
+    }
+    .app:hover{transform:translateY(-8px);box-shadow:0 30px 90px rgba(6,18,36,.15);border-color:rgba(139,199,255,.4)}
+    .app-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .app-num{font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:#7d8799}
+    .app-type{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    .app h3{margin:22px 0 10px;font-size:clamp(1.9rem,3vw,2.6rem);letter-spacing:-.05em}
+    .app p{margin:0;color:var(--muted);line-height:1.7;max-width:38ch}
+    .app-footer{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-top:22px}
+    .tags{display:flex;gap:8px;flex-wrap:wrap}
+    .tag{padding:8px 10px;border-radius:999px;background:#edf4ff;color:#39506d;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+    .app-link{
+      width:48px;height:48px;display:grid;place-items:center;border-radius:50%;
+      background:var(--ink);color:#fff;box-shadow:0 10px 24px rgba(8,16,28,.18)
+    }
+    .app-link:hover{transform:translateY(-3px) rotate(-8deg)}
+    .app[data-tone="gold"]{background:linear-gradient(180deg,#fffdf8,#fff7e7)}
+    .app[data-tone="blue"]{background:linear-gradient(180deg,#f9fcff,#ecf5ff)}
+    .app[data-tone="rose"]{background:linear-gradient(180deg,#fffafc,#ffeff4)}
+    .app[data-tone="green"]{background:linear-gradient(180deg,#f7fffc,#eafcf3)}
+    .app[data-tone="slate"]{background:linear-gradient(180deg,#fbfcfe,#f0f4f9)}
+    .app[data-tone="violet"]{background:linear-gradient(180deg,#fbfaff,#f1edff)}
+    .story-grid{
+      display:grid;grid-template-columns:1.08fr .92fr;gap:18px;margin:30px 0
+    }
+    .story,.standards,.contact,.policy{
+      border-radius:var(--radius-xl);border:1px solid var(--line);background:var(--surface);backdrop-filter:blur(18px);box-shadow:var(--shadow)
+    }
+    .story{padding:26px}
+    .story h2,.contact h2{margin:12px 0;font-size:clamp(2.3rem,4.8vw,4.4rem);letter-spacing:-.065em}
+    .story p,.contact p,.policy p{color:var(--muted);line-height:1.8}
+    .story-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+    .story-card{padding:18px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(248,250,255,.9));border:1px solid var(--line)}
+    .story-card strong{display:block;font-size:1.05rem}
+    .story-card span{display:block;margin-top:8px;color:var(--muted);line-height:1.65}
+    .standards{padding:26px}
+    .standard-grid{display:grid;gap:12px;margin-top:18px}
+    .standard{padding:18px;border-radius:22px;background:rgba(255,255,255,.82);border:1px solid var(--line)}
+    .standard strong{display:block;font-size:1.06rem;margin:8px 0 6px}
+    .standard p{margin:0;color:var(--muted);line-height:1.65}
+    .contact{padding:26px;margin:30px 0}
+    .contact-grid{
+      display:grid;grid-template-columns:1.05fr .95fr;gap:18px;align-items:start
+    }
+    .contact-email{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-radius:22px;
+      background:linear-gradient(135deg,rgba(139,199,255,.16),rgba(118,240,198,.12));border:1px solid rgba(139,199,255,.28)
+    }
+    .contact-email span{display:block;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.12em}
+    .contact-email strong{display:block;font-size:1.05rem}
+    .footer{
+      padding:20px 0 46px;display:flex;align-items:center;justify-content:space-between;gap:18px;color:var(--muted);font-size:.92rem
+    }
+    .footer-links{display:flex;gap:18px;flex-wrap:wrap}
+    .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
+    .reveal.visible{opacity:1;transform:none}
+    .hidden{display:none!important}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    @keyframes shimmer{to{background-position:220% center}}
+    @media (max-width: 1024px){
+      .hero-grid,.featured,.story-grid,.contact-grid{grid-template-columns:1fr}
+      .nav-links{display:none}
+      .app{grid-column:span 6}
+      .hero-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media (max-width: 680px){
+      .shell{width:min(100% - 18px,1220px)}
+      .nav-inner{min-height:70px}
+      .hero-card{border-radius:28px}
+      .hero-grid{padding:24px 18px 20px}
+      h1{font-size:clamp(2.8rem,16vw,4.6rem)}
+      .hero-meta{grid-template-columns:1fr}
+      .display{min-height:300px}
+      .display-grid{grid-template-columns:1fr;min-height:auto}
+      .floating-notes{grid-template-columns:1fr}
+      .app{grid-column:span 12}
+      .story-cards{grid-template-columns:1fr}
+      .footer{flex-direction:column;align-items:flex-start}
+    }
+    @media (prefers-reduced-motion: reduce){
+      html{scroll-behavior:auto}
+      *,*::before,*::after{animation:none!important;transition:none!important}
+    }
   </style>
 </head>
 <body>
-  <div class="page-shell">
-    <header class="hero">
-      <nav class="topbar">
-        <div class="brand"><div class="brand-mark">T</div><div><p>Trivion Apps</p><span>trivionapps.com</span></div></div>
-        <a class="nav-cta" href="#portfolio">Explore portfolio</a>
+  <a class="skip-link" href="#apps">Skip to products</a>
+  <div class="scroll-progress" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="nav">
+    <div class="shell nav-inner">
+      <a class="brand" href="#top">
+        <span class="brand-mark">T</span>
+        <span>Trivion Apps <small>Premium product ecosystem</small></span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#apps">Products</a>
+        <a href="#story">Story</a>
+        <a href="#standards">Standards</a>
+        <a href="#contact">Contact</a>
       </nav>
-      <div class="hero-grid">
-        <div class="hero-copy">
-          <div class="eyebrow">Premium portfolio showcase</div>
-          <h1>Six product experiences. One refined destination.</h1>
-          <p class="lede">Trivion Apps brings together a curated collection of intelligent products across finance, healthcare, entertainment, collaboration, and spiritual wellness, presented with a clean, modern, product-led website experience.</p>
-          <div class="hero-actions"><a class="primary-btn" href="#portfolio">View all apps</a><a class="secondary-btn" href="#about">Why Trivion</a></div>
-          <div class="hero-stats"><div><strong>6</strong><span>apps featured</span></div><div><strong>5</strong><span>categories</span></div><div><strong>1</strong><span>unified brand</span></div></div>
-          <div class="contact-strip">
-            <strong>Launch-ready for investors, customers, and demos</strong>
-            <span>Each app includes live and source links so visitors can explore the product and the codebase with one click.</span>
-          </div>
-        </div>
-        <div class="hero-panel">
-          <div class="panel-card spotlight"><span class="panel-label">Featured ecosystem</span><h2>Purpose-built applications designed to feel cohesive and premium.</h2><p>Every product card is linked to a live deployment and source repository, making the site both a polished showcase and a practical business directory.</p></div>
-          <div class="panel-metrics"><div><span>Focus</span><strong>AI-first utility</strong></div><div><span>Audience</span><strong>Modern teams & users</strong></div><div><span>Experience</span><strong>Editorial + product-led</strong></div></div>
-        </div>
+      <div class="nav-actions">
+        <a class="ghost" href="#apps">Explore 12 apps</a>
+        <a class="solid" href="mailto:support@trivionapps.com">Talk to us</a>
       </div>
-      <div class="showcase">
-        <article class="showcase-card">
-          <div class="top"><strong>ArthaTaxAI</strong><span class="chip">Finance interface</span></div>
-          <div class="mock-window">
-            <div class="window-bar"><span></span><span></span><span></span></div>
-            <div class="window-grid">
-              <div class="panel big">
-                <div class="stack">
-                  <div class="hero-line"></div>
-                  <div class="hero-line small"></div>
-                </div>
-                <div class="window-footer"><span class="pill">Tax planning</span><span class="pill">AI guidance</span></div>
-              </div>
-              <div class="stack">
-                <div class="stat"></div>
-                <div class="stat"></div>
-                <div class="stat"></div>
-              </div>
+    </div>
+  </header>
+  <main id="top">
+    <section class="hero shell">
+      <div class="hero-card">
+        <div class="hero-grid">
+          <div class="hero-copy reveal">
+            <span class="eyebrow">A premium home for the Trivion ecosystem</span>
+            <h1>Powerful products, presented with <em>clarity</em> and drama.</h1>
+            <p class="lede">Trivion Apps now feels like a flagship product brand: refined typography, luminous surfaces, calmer hierarchy, and sharper motion that makes the 12-app portfolio easy to scan while still feeling elevated.</p>
+            <div class="hero-actions">
+              <a class="solid" href="#apps">View the ecosystem <span aria-hidden="true">↗</span></a>
+              <a class="outline" href="#story">See the brand system</a>
+            </div>
+            <div class="hero-meta">
+              <div class="metric"><strong>12</strong><span>apps in one system</span></div>
+              <div class="metric"><strong>Live</strong><span>direct access to each product</span></div>
+              <div class="metric"><strong>Fast</strong><span>static, responsive, lightweight</span></div>
             </div>
           </div>
-        </article>
-        <article class="showcase-card">
-          <div class="top"><strong>CineMagic AI</strong><span class="chip">Entertainment interface</span></div>
-          <div class="mock-window light">
-            <div class="window-bar"><span></span><span></span><span></span></div>
-            <div class="window-grid">
-              <div class="panel big">
-                <div class="stack">
-                  <div class="hero-line"></div>
-                  <div class="hero-line small"></div>
+          <div class="hero-side reveal" aria-hidden="true">
+            <div class="display">
+              <div class="display-top"><span>Flagship view</span><span>Trivion Apps</span></div>
+              <div class="display-grid">
+                <div class="glass glass-main">
+                  <div class="live-lines">
+                    <div class="line"></div>
+                    <div class="line line-sm"></div>
+                    <div class="line line-xs"></div>
+                  </div>
+                  <div class="chip-row">
+                    <span class="chip">Premium</span>
+                    <span class="chip">AI-led</span>
+                    <span class="chip">Portfolio</span>
+                  </div>
                 </div>
-                <div class="window-footer"><span class="pill">Discovery</span><span class="pill">Storytelling</span></div>
-              </div>
-              <div class="stack">
-                <div class="stat"></div>
-                <div class="stat"></div>
-                <div class="stat"></div>
+                <div class="stack">
+                  <div class="stack-card">
+                    <strong>Unified brand</strong>
+                    <span>One visual language across finance, wellness, collaboration, operations, and data.</span>
+                  </div>
+                  <div class="stack-card">
+                    <strong>Trust signals</strong>
+                    <span>Clear navigation, live links, support contact, and a consistent hierarchy.</span>
+                  </div>
+                </div>
               </div>
             </div>
+            <div class="floating-notes">
+              <div class="note"><strong>Live</strong><span>all links preserved</span></div>
+              <div class="note"><strong>Polished</strong><span>glass and light effects</span></div>
+              <div class="note"><strong>Responsive</strong><span>desktop and mobile ready</span></div>
+            </div>
           </div>
-        </article>
+        </div>
       </div>
-    </header>
-    <main>
-      <section class="section intro" id="about"><div><div class="section-tag">About the brand</div><h2>A clean, investor-friendly home for a multi-product portfolio.</h2></div><p>The layout is intentionally elevated: generous spacing, a restrained palette, editorial typography, and subtle depth that lets the products feel like a coordinated suite rather than six unrelated links.</p></section>
-      <section class="portfolio" id="portfolio">
-        <article class="app-card accent-gold"><div class="card-head"><span class="app-index">01</span><span class="app-type">Tax intelligence</span></div><h3>ArthaTaxAI</h3><p>AI-assisted tax guidance and workflow support for smarter financial decisions.</p><div class="card-links"><a href="https://arthataxai.onrender.com" target="_blank" rel="noreferrer">Live site</a><a href="https://github.com/vijaynaidus/arthataxai.git" target="_blank" rel="noreferrer">Source repo</a></div></article>
-        <article class="app-card accent-blue"><div class="card-head"><span class="app-index">02</span><span class="app-type">Market platform</span></div><h3>MarketPilot</h3><p>Market-aware workflows and analytical tooling built for trading and investing clarity.</p><div class="card-links"><a href="https://marketpilot-g4o6.onrender.com" target="_blank" rel="noreferrer">Live site</a><a href="https://github.com/vijaynaidus/stock-market.git" target="_blank" rel="noreferrer">Source repo</a></div></article>
-        <article class="app-card accent-rose"><div class="card-head"><span class="app-index">03</span><span class="app-type">Entertainment AI</span></div><h3>CineMagic AI</h3><p>Creative AI experiences centered on film discovery, storytelling, and cinematic exploration.</p><div class="card-links"><a href="https://cinemagic-ai.onrender.com" target="_blank" rel="noreferrer">Live site</a><a href="https://github.com/vijaynaidus/CineMagic-AI.git" target="_blank" rel="noreferrer">Source repo</a></div></article>
-        <article class="app-card accent-green"><div class="card-head"><span class="app-index">04</span><span class="app-type">Health & wellness</span></div><h3>Life Guardian</h3><p>Wellness-oriented digital support designed to help users stay informed and proactive.</p><div class="card-links"><a href="https://health-wellness-1m3n.onrender.com" target="_blank" rel="noreferrer">Live site</a><a href="https://github.com/vijaynaidus/life-guardian.git" target="_blank" rel="noreferrer">Source repo</a></div></article>
-        <article class="app-card accent-slate"><div class="card-head"><span class="app-index">05</span><span class="app-type">Collaboration</span></div><h3>Screen Share</h3><p>Simple, direct sharing and collaboration built for teams that value speed and clarity.</p><div class="card-links"><a href="https://screen-share-ci0i.onrender.com" target="_blank" rel="noreferrer">Live site</a><a href="https://github.com/vijaynaidus/screen-share.git" target="_blank" rel="noreferrer">Source repo</a></div></article>
-        <article class="app-card accent-violet"><div class="card-head"><span class="app-index">06</span><span class="app-type">Spiritual wellness</span></div><h3>Sanatana</h3><p>A culturally rooted product experience that blends tradition, learning, and digital simplicity.</p><div class="card-links"><a href="https://sanatana-dwxx.onrender.com" target="_blank" rel="noreferrer">Live site</a><a href="https://github.com/vijaynaidus/sanatana.git" target="_blank" rel="noreferrer">Source repo</a></div></article>
-      </section>
-      <section class="section split"><div class="quote-card"><div class="section-tag">Brand direction</div><h2>Minimal, confident, and product-led.</h2><p>The visual language uses a light SaaS-inspired base, calm blue accents, and clean cards to create a modern launch page that feels ready for users, partners, and investors.</p></div><div class="detail-card"><div class="section-tag">What visitors see</div><ul><li>Clear product categorization</li><li>Clickable live and source links for each app</li><li>Professional brand framing for trivionapps.com</li><li>Responsive layout for desktop and mobile</li></ul></div></section>
-    </main>
-  </div>
+    </section>
+    <section class="overview shell reveal" id="apps">
+      <div class="overview-card">
+        <div class="overview-top">
+          <div>
+            <span class="eyebrow" style="color:#245ea0;border-color:rgba(8,16,28,.08);background:rgba(139,199,255,.1)">The ecosystem</span>
+            <p>Search, filter, and open the 12 Trivion products from one visually unified surface. The cards use richer depth and stronger hierarchy, but the layout still stays quick to load and easy to use.</p>
+          </div>
+          <div class="count" aria-live="polite"><strong>12 products</strong><span>visible and organized</span></div>
+        </div>
+        <div class="search-row">
+          <label class="search" aria-label="Search Trivion products">
+            <span aria-hidden="true">⌕</span>
+            <input type="search" placeholder="Search products, categories, or outcomes" autocomplete="off" />
+            <kbd>/</kbd>
+          </label>
+          <div class="filters" role="tablist" aria-label="Product filters">
+            <button class="filter active" type="button" data-filter="all">All</button>
+            <button class="filter" type="button" data-filter="ai">AI</button>
+            <button class="filter" type="button" data-filter="finance">Finance</button>
+            <button class="filter" type="button" data-filter="utility">Utility</button>
+            <button class="filter" type="button" data-filter="wellness">Wellness</button>
+          </div>
+        </div>
+        <div class="featured">
+          <article class="spotlight">
+            <label>Featured product</label>
+            <h2>ArthaTaxAI leads the portfolio with financial clarity.</h2>
+            <p>Each card keeps its live destination and product story, but the interface now feels more intentional: stronger spacing, clearer labels, richer surfaces, and a more cinematic first impression for the entire portfolio.</p>
+            <div class="spotlight-actions">
+              <a class="solid" href="https://arthataxai.onrender.com" target="_blank" rel="noreferrer">Open live product <span aria-hidden="true">↗</span></a>
+              <a class="outline" href="#standards">See the standards</a>
+            </div>
+          </article>
+          <aside class="orb" aria-hidden="true">
+            <div class="orb-tag one"><b>Signal</b>Sharper hierarchy</div>
+            <div class="orb-tag two"><b>Motion</b>Hover and glow</div>
+            <div class="orb-tag three"><b>Feel</b>Premium and calm</div>
+            <div class="orb-core">12</div>
+          </aside>
+        </div>
+        <div class="apps">
+          <article class="app reveal" data-category="finance ai" data-tone="gold">
+            <div class="app-top"><span class="app-num">01 / TAX</span><span class="app-type">Finance intelligence</span></div>
+            <h3>ArthaTaxAI</h3>
+            <p>AI-assisted tax planning and financial clarity, presented as a confident, high-trust product.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Finance</span><span class="tag">AI guidance</span></div><a class="app-link" href="https://arthataxai.onrender.com" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="finance ai" data-tone="blue">
+            <div class="app-top"><span class="app-num">02 / MARKET</span><span class="app-type">Market platform</span></div>
+            <h3>MarketPilot</h3>
+            <p>Analytical workflows for market awareness, trading decisions, and a more composed investing experience.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Markets</span><span class="tag">Analytics</span></div><a class="app-link" href="https://marketpilot-g4o6.onrender.com" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="ai utility" data-tone="rose">
+            <div class="app-top"><span class="app-num">03 / FILM</span><span class="app-type">Entertainment AI</span></div>
+            <h3>CineMagic AI</h3>
+            <p>Cinematic discovery and storytelling tools with a richer presentation for viewers and creators.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Storytelling</span><span class="tag">Discovery</span></div><a class="app-link" href="https://cinemagic-ai.onrender.com" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="wellness ai" data-tone="green">
+            <div class="app-top"><span class="app-num">04 / LIFE</span><span class="app-type">Health & wellness</span></div>
+            <h3>Life Guardian</h3>
+            <p>Wellness-focused support designed to keep people informed, proactive, and reassured.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Wellness</span><span class="tag">Support</span></div><a class="app-link" href="https://health-wellness-1m3n.onrender.com" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="utility" data-tone="slate">
+            <div class="app-top"><span class="app-num">05 / SHARE</span><span class="app-type">Collaboration</span></div>
+            <h3>Screen Share</h3>
+            <p>Fast, direct collaboration with a more refined entry point for teams and live sessions.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Collaboration</span><span class="tag">Remote work</span></div><a class="app-link" href="https://screen-share-ci0i.onrender.com" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="utility ai" data-tone="violet">
+            <div class="app-top"><span class="app-num">06 / ROOT</span><span class="app-type">Spiritual wellness</span></div>
+            <h3>Sanatana</h3>
+            <p>A culturally rooted experience blending tradition, learning, and a calm digital presence.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Culture</span><span class="tag">Wellbeing</span></div><a class="app-link" href="https://sanatana-dwxx.onrender.com" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="utility ai" data-tone="blue">
+            <div class="app-top"><span class="app-num">07 / ACCESS</span><span class="app-type">Accessibility intelligence</span></div>
+            <h3>AccessBridge</h3>
+            <p>Accessibility tools for visual guidance, speech support, and more confident digital navigation.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Accessibility</span><span class="tag">Assistive AI</span></div><a class="app-link" href="https://accessbridge.trivionapps.com" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="utility" data-tone="slate">
+            <div class="app-top"><span class="app-num">08 / FORGE</span><span class="app-type">Developer cloud</span></div>
+            <h3>UltraForge</h3>
+            <p>A developer cloud for repositories, reviews, deployments, and live telemetry in one focused workspace.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Developer tools</span><span class="tag">Deployments</span></div><a class="app-link" href="https://ultraforge.trivionapps.com" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="utility ai" data-tone="blue">
+            <div class="app-top"><span class="app-num">09 / DASH</span><span class="app-type">Dashboard studio</span></div>
+            <h3>DashForge</h3>
+            <p>A dashboard studio for turning operational data and executive signals into clear command centers.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Dashboards</span><span class="tag">Operations</span></div><a class="app-link" href="https://dashforge.trivionapps.com" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="utility ai" data-tone="green">
+            <div class="app-top"><span class="app-num">10 / PULSE</span><span class="app-type">Service intelligence</span></div>
+            <h3>PulseDesk</h3>
+            <p>An intelligent service desk experience for organizing requests and helping teams respond faster.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Service desk</span><span class="tag">Support AI</span></div><a class="app-link" href="https://pulsedesk.trivionapps.com/" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="utility ai" data-tone="slate">
+            <div class="app-top"><span class="app-num">11 / BOARD</span><span class="app-type">Operations board</span></div>
+            <h3>PulseBoard</h3>
+            <p>A modern operations board for tracking priorities, team signals, and live momentum.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Operations</span><span class="tag">Live board</span></div><a class="app-link" href="https://pulseboard.trivionapps.com/" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="utility ai" data-tone="violet">
+            <div class="app-top"><span class="app-num">12 / VAULT</span><span class="app-type">Data workspace</span></div>
+            <h3>VaultDB</h3>
+            <p>A focused data workspace for organizing, exploring, and acting on trusted information.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Data</span><span class="tag">Secure insights</span></div><a class="app-link" href="https://dbvault.trivionapps.com/" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+        </div>
+      </div>
+    </section>
+    <section class="story-grid shell" id="story">
+      <article class="story reveal">
+        <span>Brand direction</span>
+        <h2>Luxury, calm, and product-led.</h2>
+        <p>The redesign trades the earlier busy feel for a more memorable flagship: darker hero contrast, glowing glass layers, cleaner cards, and a more deliberate rhythm that makes the ecosystem look cohesive and premium.</p>
+        <div class="story-cards">
+          <div class="story-card"><strong>Sharper hierarchy</strong><span>Less visual noise, more emphasis on the site title, category labels, and calls to action.</span></div>
+          <div class="story-card"><strong>Better motion</strong><span>Subtle hover lift, shimmer, and reveal animations that feel polished instead of flashy.</span></div>
+        </div>
+      </article>
+      <article class="standards reveal" id="standards">
+        <span>Trivion standards</span>
+        <h2 style="margin:12px 0 0;font-size:clamp(2.2rem,4.6vw,4rem);letter-spacing:-.06em">The ecosystem stays clear at every size.</h2>
+        <div class="standard-grid">
+          <div class="standard"><span>01</span><strong>Premium clarity</strong><p>Strong contrast, thoughtful spacing, and readable text keep the experience elegant and fast to understand.</p></div>
+          <div class="standard"><span>02</span><strong>Trust and utility</strong><p>Navigation, product links, and support details are always visible, so the page feels dependable.</p></div>
+          <div class="standard"><span>03</span><strong>Consistent ecosystem</strong><p>Every app is treated as part of one family, even while each card keeps its own tone and destination.</p></div>
+        </div>
+      </article>
+    </section>
+    <section class="contact shell reveal" id="contact">
+      <div class="contact-grid">
+        <div>
+          <span class="eyebrow" style="color:#245ea0;border-color:rgba(8,16,28,.08);background:rgba(139,199,255,.1)">Trust and contact</span>
+          <h2>Visitors can find the brand, the products, and the team instantly.</h2>
+          <p>Support and enquiries still route to the same place. The page just presents the ecosystem with more confidence, clearer wayfinding, and a stronger sense of craftsmanship.</p>
+        </div>
+        <a class="contact-email" href="mailto:support@trivionapps.com">
+          <div>
+            <span>Enquiries</span>
+            <strong>support@trivionapps.com</strong>
+          </div>
+          <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </section>
+  </main>
+  <footer class="shell footer">
+    <a class="brand" href="#top">
+      <span class="brand-mark">T</span>
+      <span>Trivion Apps <small>Purposeful products for a changing world</small></span>
+    </a>
+    <div class="footer-links">
+      <a href="#apps">Products</a>
+      <a href="#standards">Standards</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </footer>
+  <script>
+    (() => {
+      const progress = document.querySelector('.scroll-progress');
+      const cards = [...document.querySelectorAll('.app')];
+      const filters = [...document.querySelectorAll('.filter')];
+      const search = document.querySelector('.search input');
+      const reveal = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            reveal.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.08 });
+      document.querySelectorAll('.reveal').forEach(el => reveal.observe(el));
+      const applyFilter = () => {
+        const query = search.value.trim().toLowerCase();
+        const active = document.querySelector('.filter.active')?.dataset.filter || 'all';
+        let visible = 0;
+        cards.forEach(card => {
+          const categoryMatch = active === 'all' || card.dataset.category.includes(active);
+          const queryMatch = !query || card.textContent.toLowerCase().includes(query);
+          const show = categoryMatch && queryMatch;
+          card.classList.toggle('hidden', !show);
+          if (show) visible += 1;
+        });
+        document.querySelector('.count strong').textContent = `${visible} products`;
+      };
+      filters.forEach(button => button.addEventListener('click', () => {
+        filters.forEach(item => item.classList.remove('active'));
+        button.classList.add('active');
+        applyFilter();
+      }));
+      search.addEventListener('input', applyFilter);
+      document.addEventListener('keydown', event => {
+        if (event.key === '/' && !/input|textarea|select/i.test(document.activeElement.tagName)) {
+          event.preventDefault();
+          search.focus();
+        }
+        if (event.key === 'Escape' && document.activeElement === search) {
+          search.value = '';
+          applyFilter();
+          search.blur();
+        }
+      });
+      cards.forEach(card => {
+        card.addEventListener('pointermove', event => {
+          const rect = card.getBoundingClientRect();
+          card.style.setProperty('--mx', `${event.clientX - rect.left}px`);
+          card.style.setProperty('--my', `${event.clientY - rect.top}px`);
+        });
+      });
+      addEventListener('scroll', () => {
+        const max = document.documentElement.scrollHeight - innerHeight;
+        progress.style.width = `${max ? scrollY / max * 100 : 0}%`;
+      }, { passive: true });
+      applyFilter();
+    })();
+  </script>
 </body>
 </html>`;
 
