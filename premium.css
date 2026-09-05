@@ -14,5 +14,11 @@ body{background:radial-gradient(circle at 8% 8%,rgba(169,217,255,.2),transparent
 .launch{box-shadow:0 8px 25px rgba(7,17,28,.18)}
 .manifesto{box-shadow:0 28px 85px rgba(3,14,28,.18)}
 .cta{box-shadow:0 24px 70px rgba(55,90,120,.14)}
+.app,.feature-card,.standard,.status-card,.trust-card,.policy article{isolation:isolate;overflow:hidden}
+.app::after,.feature-card::after,.standard::after,.status-card::after,.trust-card::after,.policy article::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(115deg,transparent 24%,rgba(255,255,255,.3) 48%,transparent 66%);transform:translateX(-135%);transition:transform 1s cubic-bezier(.2,.8,.2,1)}
+.app:hover::after,.feature-card:hover::after,.standard:hover::after,.status-card:hover::after,.trust-card:hover::after,.policy article:hover::after{transform:translateX(135%)}
+.feature-card,.standard,.status-card,.trust-card,.policy article{transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease,border-color .35s ease}
+.feature-card:hover,.standard:hover,.status-card:hover,.trust-card:hover,.policy article:hover{transform:translateY(-4px);box-shadow:0 22px 52px rgba(3,18,34,.12)}
+.contact-form button:focus-visible,.contact-form input:focus-visible,.contact-form textarea:focus-visible,.btn:focus-visible,.launch:focus-visible{outline:3px solid color-mix(in srgb,var(--mint) 72%,white);outline-offset:4px}
 @media (max-width:700px){.hero{border-radius:0 0 34px 34px}.portfolio-wrap{border-radius:34px}.app{box-shadow:0 18px 50px rgba(3,18,34,.12)}.float-card{font-size:.7rem;padding:11px 13px}}
-@media (prefers-reduced-motion:reduce){.app-art{transform:none!important}}
+@media (prefers-reduced-motion:reduce){.app-art{transform:none!important}.app::after,.feature-card::after,.standard::after,.status-card::after,.trust-card::after,.policy article::after{display:none}.feature-card,.standard,.status-card,.trust-card,.policy article{transition:none}}
