@@ -4,19 +4,19 @@ const html = `<!doctype html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Trivion Apps | Premium product ecosystem</title>
-  <meta name="description" content="Trivion Apps is a cinematic portfolio of 12 intelligent products spanning finance, wellness, collaboration, operations, and data." />
+  <meta name="description" content="Trivion Apps is a cinematic portfolio of 13 intelligent products spanning finance, security, wellness, collaboration, operations, and data." />
   <meta name="theme-color" content="#07111f" />
   <meta name="author" content="Trivion Apps" />
   <meta name="robots" content="index,follow" />
   <link rel="canonical" href="https://www.trivionapps.com/" />
   <meta property="og:title" content="Trivion Apps | Premium product ecosystem" />
-  <meta property="og:description" content="Explore 12 polished Trivion products in one premium ecosystem built for clarity, depth, and fast discovery." />
+  <meta property="og:description" content="Explore 13 polished Trivion products in one premium ecosystem built for clarity, depth, and fast discovery." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://www.trivionapps.com/" />
   <meta property="og:site_name" content="Trivion Apps" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Trivion Apps | Premium product ecosystem" />
-  <meta name="twitter:description" content="A cinematic ecosystem of 12 intelligent Trivion products built for clarity, trust, and fast discovery." />
+  <meta name="twitter:description" content="A cinematic ecosystem of 13 intelligent Trivion products built for clarity, trust, and fast discovery." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
@@ -156,6 +156,10 @@ const html = `<!doctype html>
     .app-visual{margin:18px 0 0;border-radius:22px;overflow:hidden;border:1px solid rgba(8,16,28,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
     .app-visual img{width:100%;height:170px;display:block;object-fit:cover;object-position:top center;transition:transform .7s cubic-bezier(.2,.8,.2,1),filter .7s}
     .app:hover .app-visual img{transform:scale(1.04)}
+    .securepilot-visual{height:172px;position:relative;display:grid;place-items:center;background:radial-gradient(circle at 72% 26%,rgba(56,189,248,.42),transparent 28%),linear-gradient(145deg,#06111f,#0b2740 56%,#0c4460);isolation:isolate}
+    .securepilot-visual::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(125,211,252,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(125,211,252,.08) 1px,transparent 1px);background-size:26px 26px;mask-image:linear-gradient(to bottom,black,transparent)}
+    .securepilot-visual::after{content:"";position:absolute;width:116px;height:116px;border:1px solid rgba(125,211,252,.3);border-radius:50%;box-shadow:0 0 0 22px rgba(56,189,248,.05),0 0 60px rgba(56,189,248,.24)}
+    .securepilot-emblem{position:relative;z-index:1;width:78px;height:88px;display:grid;place-items:center;color:#e8f8ff;font-weight:800;font-size:1.5rem;letter-spacing:-.05em;background:linear-gradient(155deg,rgba(125,211,252,.36),rgba(37,99,235,.14));border:1px solid rgba(186,230,253,.55);clip-path:polygon(50% 0,92% 16%,84% 70%,50% 100%,16% 70%,8% 16%);filter:drop-shadow(0 18px 22px rgba(0,0,0,.28))}
     .app-footer{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-top:18px}
     .tags{display:flex;gap:8px;flex-wrap:wrap}
     .tag{padding:8px 10px;border-radius:999px;background:#edf4ff;color:#39506d;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
@@ -198,7 +202,7 @@ const html = `<!doctype html>
         <a href="#apps">Products</a><a href="#ecosystem">Ecosystem</a><a href="#standards">Standards</a><a href="#contact">Contact</a>
       </nav>
       <div class="nav-actions">
-        <a class="ghost" href="#apps">Explore 12 apps</a>
+        <a class="ghost" href="#apps">Explore 13 apps</a>
         <a class="solid" href="mailto:support@trivionapps.com">Talk to us</a>
       </div>
     </div>
@@ -211,13 +215,13 @@ const html = `<!doctype html>
           <div class="hero-copy reveal">
             <span class="eyebrow">A premium home for the Trivion ecosystem</span>
             <h1>Powerful products, presented with <em>clarity</em> and drama.</h1>
-            <p class="lede">This flagship now feels more like a polished AI-native studio than a simple link hub: stronger hierarchy, cinematic contrast, luminous glass, and deliberate motion that helps the 12-app ecosystem read instantly.</p>
+            <p class="lede">This flagship now feels more like a polished AI-native studio than a simple link hub: stronger hierarchy, cinematic contrast, luminous glass, and deliberate motion that helps the 13-app ecosystem read instantly.</p>
             <div class="hero-actions">
               <a class="solid" href="#apps">View the ecosystem <span aria-hidden="true">↗</span></a>
               <a class="outline" href="#ecosystem">See the brand system</a>
             </div>
             <div class="hero-meta">
-              <div class="metric"><strong>12</strong><span>apps in one system</span></div>
+              <div class="metric"><strong>13</strong><span>apps in one system</span></div>
               <div class="metric"><strong>Live</strong><span>direct access to each product</span></div>
               <div class="metric"><strong>Fast</strong><span>static, responsive, lightweight</span></div>
             </div>
@@ -250,9 +254,9 @@ const html = `<!doctype html>
         <div class="overview-top">
           <div>
             <span class="eyebrow" style="color:#245ea0;border-color:rgba(8,16,28,.08);background:rgba(137,200,255,.1)">The ecosystem</span>
-            <p>Search, filter, and open the 12 Trivion products from one visually unified surface. The cards use richer depth and stronger hierarchy, but the layout still stays quick to load and easy to use.</p>
+            <p>Search, filter, and open the 13 Trivion products from one visually unified surface. The cards use richer depth and stronger hierarchy, but the layout still stays quick to load and easy to use.</p>
           </div>
-          <div class="count" aria-live="polite"><strong>12 products</strong><span>visible and organized</span></div>
+          <div class="count" aria-live="polite"><strong>13 products</strong><span>visible and organized</span></div>
         </div>
         <div class="search-row">
           <label class="search" aria-label="Search Trivion products">
@@ -282,7 +286,7 @@ const html = `<!doctype html>
             <div class="orb-tag one"><b>Signal</b>Sharper hierarchy</div>
             <div class="orb-tag two"><b>Motion</b>Hover and glow</div>
             <div class="orb-tag three"><b>Feel</b>Premium and calm</div>
-            <div class="orb-core">12</div>
+            <div class="orb-core">13</div>
           </aside>
         </div>
         <div class="apps">
@@ -357,6 +361,12 @@ const html = `<!doctype html>
             <div class="app-visual"><img src="assets/app-previews/vaultdb.webp" alt="VaultDB data workspace preview" loading="lazy"></div>
             <h3>VaultDB</h3><p>A focused data workspace for organizing, exploring, and acting on trusted information.</p>
             <div class="app-footer"><div class="tags"><span class="tag">Data</span><span class="tag">Secure insights</span></div><a class="card-link" href="https://dbvault.trivionapps.com/" target="_blank" rel="noreferrer">↗</a></div>
+          </article>
+          <article class="app reveal" data-category="utility ai">
+            <div class="app-top"><span class="app-num">13 / SECURE</span><span class="app-type">Security intelligence</span></div>
+            <div class="app-visual securepilot-visual" aria-hidden="true"><span class="securepilot-emblem">SP</span></div>
+            <h3>SecurePilot</h3><p>An intelligent security workspace for clearer risk visibility, guided assessments, and confident protection decisions.</p>
+            <div class="app-footer"><div class="tags"><span class="tag">Security</span><span class="tag">Risk intelligence</span></div><a class="card-link" href="https://securepilot.trivionapps.com/" target="_blank" rel="noreferrer" aria-label="Open SecurePilot">↗</a></div>
           </article>
         </div>
       </div>
