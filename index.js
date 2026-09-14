@@ -156,14 +156,6 @@ const html = `<!doctype html>
     .app-visual{margin:18px 0 0;border-radius:22px;overflow:hidden;border:1px solid rgba(8,16,28,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
     .app-visual img{width:100%;height:170px;display:block;object-fit:cover;object-position:top center;transition:transform .7s cubic-bezier(.2,.8,.2,1),filter .7s}
     .app:hover .app-visual img{transform:scale(1.04)}
-    .securepilot-visual{height:172px;position:relative;display:grid;place-items:center;background:radial-gradient(circle at 72% 26%,rgba(56,189,248,.42),transparent 28%),linear-gradient(145deg,#06111f,#0b2740 56%,#0c4460);isolation:isolate}
-    .securepilot-visual::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(125,211,252,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(125,211,252,.08) 1px,transparent 1px);background-size:26px 26px;mask-image:linear-gradient(to bottom,black,transparent)}
-    .securepilot-visual::after{content:"";position:absolute;width:116px;height:116px;border:1px solid rgba(125,211,252,.3);border-radius:50%;box-shadow:0 0 0 22px rgba(56,189,248,.05),0 0 60px rgba(56,189,248,.24)}
-    .securepilot-emblem{position:relative;z-index:1;width:78px;height:88px;display:grid;place-items:center;color:#e8f8ff;font-weight:800;font-size:1.5rem;letter-spacing:-.05em;background:linear-gradient(155deg,rgba(125,211,252,.36),rgba(37,99,235,.14));border:1px solid rgba(186,230,253,.55);clip-path:polygon(50% 0,92% 16%,84% 70%,50% 100%,16% 70%,8% 16%);filter:drop-shadow(0 18px 22px rgba(0,0,0,.28))}
-    .finvault-visual{height:172px;position:relative;display:grid;place-items:center;background:radial-gradient(circle at 26% 20%,rgba(250,204,21,.28),transparent 24%),linear-gradient(145deg,#061812,#0c3527 58%,#155e4a);isolation:isolate}
-    .finvault-visual::before{content:"";position:absolute;inset:16px;border:1px solid rgba(253,230,138,.2);border-radius:17px;background:repeating-linear-gradient(135deg,rgba(255,255,255,.025) 0 2px,transparent 2px 11px)}
-    .finvault-visual::after{content:"";position:absolute;width:116px;height:116px;border:1px solid rgba(253,230,138,.34);border-radius:50%;box-shadow:0 0 0 20px rgba(16,185,129,.07),0 0 58px rgba(16,185,129,.25)}
-    .finvault-emblem{position:relative;z-index:1;width:82px;height:82px;border-radius:50%;display:grid;place-items:center;color:#fff7d6;font-weight:800;font-size:1.45rem;letter-spacing:-.05em;background:linear-gradient(145deg,rgba(250,204,21,.32),rgba(5,150,105,.2));border:1px solid rgba(254,240,138,.58);box-shadow:inset 0 0 0 9px rgba(3,33,24,.4),0 18px 30px rgba(0,0,0,.28)}
     .app-footer{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-top:18px}
     .tags{display:flex;gap:8px;flex-wrap:wrap}
     .tag{padding:8px 10px;border-radius:999px;background:#edf4ff;color:#39506d;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
@@ -368,13 +360,13 @@ const html = `<!doctype html>
           </article>
           <article class="app reveal" data-category="utility ai">
             <div class="app-top"><span class="app-num">13 / SECURE</span><span class="app-type">Security intelligence</span></div>
-            <div class="app-visual securepilot-visual" aria-hidden="true"><span class="securepilot-emblem">SP</span></div>
+            <div class="app-visual"><img src="assets/app-previews/securepilot.jpg" alt="SecurePilot security command center preview" loading="lazy"></div>
             <h3>SecurePilot</h3><p>An intelligent security workspace for clearer risk visibility, guided assessments, and confident protection decisions.</p>
             <div class="app-footer"><div class="tags"><span class="tag">Security</span><span class="tag">Risk intelligence</span></div><a class="card-link" href="https://securepilot.trivionapps.com/" target="_blank" rel="noreferrer" aria-label="Open SecurePilot">↗</a></div>
           </article>
           <article class="app reveal" data-category="finance ai">
             <div class="app-top"><span class="app-num">14 / FINVAULT</span><span class="app-type">Financial intelligence</span></div>
-            <div class="app-visual finvault-visual" aria-hidden="true"><span class="finvault-emblem">FV</span></div>
+            <div class="app-visual"><img src="assets/app-previews/finvault.jpg" alt="FinVault financial products homepage preview" loading="lazy"></div>
             <h3>FinVault</h3><p>A secure financial workspace for organizing records, understanding money, and making informed decisions with confidence.</p>
             <div class="app-footer"><div class="tags"><span class="tag">Finance</span><span class="tag">Secure workspace</span></div><a class="card-link" href="https://finvault.trivionapps.com/" target="_blank" rel="noreferrer" aria-label="Open FinVault">↗</a></div>
           </article>
