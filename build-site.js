@@ -15,6 +15,7 @@ body[data-theme="solar"]{--ink:#17120a;--mint:#fbbf24;--paper:#fffaf0;--muted:#7
 .theme-picker{position:relative;z-index:30}.theme-picker-button{display:flex;align-items:center;gap:10px;min-width:142px;padding:12px 15px;border:1px solid rgba(255,255,255,.26);border-radius:999px;background:rgba(7,17,31,.44);color:#fff;font:700 .82rem "Manrope";cursor:pointer;backdrop-filter:blur(18px);box-shadow:0 12px 30px rgba(0,0,0,.12)}.theme-picker-button:hover,.theme-picker-button[aria-expanded="true"]{border-color:var(--mint);background:rgba(7,17,31,.68)}.theme-picker-chevron{margin-left:auto;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .2s}.theme-picker-button[aria-expanded="true"] .theme-picker-chevron{transform:rotate(225deg) translate(-1px,-1px)}.theme-picker-menu{position:absolute;right:0;top:calc(100% + 10px);display:grid;gap:5px;width:190px;padding:7px;border:1px solid rgba(148,163,184,.25);border-radius:18px;background:rgba(9,16,31,.94);box-shadow:0 20px 50px rgba(0,0,0,.28);backdrop-filter:blur(22px)}.theme-picker-menu[hidden]{display:none}.theme-option{display:flex;align-items:center;gap:10px;width:100%;padding:10px;border:0;border-radius:12px;background:transparent;color:#dbeafe;text-align:left;font:600 .78rem "Manrope";cursor:pointer}.theme-option:hover,.theme-option[aria-checked="true"]{background:rgba(103,232,249,.13);color:#fff}.theme-swatch{width:18px;height:18px;border:2px solid rgba(255,255,255,.46);border-radius:50%;box-shadow:0 0 0 3px rgba(255,255,255,.04)}.theme-swatch.executive{background:linear-gradient(135deg,#38bdf8,#2563eb)}.theme-swatch.obsidian{background:linear-gradient(135deg,#0f172a,#67e8f9)}.theme-swatch.royal{background:linear-gradient(135deg,#7c3aed,#f472b6)}.theme-swatch.solar{background:linear-gradient(135deg,#fbbf24,#f97316)}
 `;
 const enquiryScript = '<script>(()=>{const form=document.querySelector(".contact-form");if(!form)return;form.addEventListener("submit",event=>{event.preventDefault();const data=new FormData(form),name=String(data.get("name")||"").trim(),email=String(data.get("email")||"").trim(),company=String(data.get("company")||"").trim(),message=String(data.get("message")||"").trim(),body=[`Name: ${name}`,`Email: ${email}`,company?`Company: ${company}`:"",`Message:\n${message}`].filter(Boolean).join("\n\n"),subject="Trivion Apps Enquiry";const status=form.querySelector(".form-status");if(status){status.textContent="Your email app is opening with the enquiry prepared.";status.style.display="block"}try{window.location.href=`mailto:support@trivionapps.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}catch{if(status)status.textContent="Please email support@trivionapps.com directly."}})})();</script>';
+const analyticsScript = `<script>(()=>{const appHosts={"arthataxai.trivionapps.com":"arthataxai","marketpilot.trivionapps.com":"marketpilot","cinemagic.trivionapps.com":"cinemagic-ai","lifeguardian.trivionapps.com":"life-guardian","screenshare.trivionapps.com":"screen-share","sanatana.trivionapps.com":"sanatana","accessbridge.trivionapps.com":"accessbridge","ultraforge.trivionapps.com":"ultraforge","dashforge.trivionapps.com":"dashforge","pulsedesk.trivionapps.com":"pulsedesk","pulseboard.trivionapps.com":"pulseboard","dbvault.trivionapps.com":"dbvault","securepilot.trivionapps.com":"securepilot","finvault.trivionapps.com":"finvault"};let visitor;try{visitor=localStorage.getItem("trivion-visitor-id");if(!visitor){visitor=crypto.randomUUID();localStorage.setItem("trivion-visitor-id",visitor)}}catch{visitor=crypto.randomUUID()}const send=payload=>{const body=JSON.stringify({...payload,visitor});if(navigator.sendBeacon){navigator.sendBeacon("/api/analytics",new Blob([body],{type:"text/plain"}));return}fetch("/api/analytics",{method:"POST",body,keepalive:true,headers:{"content-type":"text/plain"}}).catch(()=>{})};send({type:"page_view"});document.addEventListener("click",event=>{const link=event.target.closest?.("a[href]");if(!link)return;try{const app=appHosts[new URL(link.href,location.href).hostname];if(app)send({type:"app_click",app})}catch{}},{capture:true})})();</script>`;
 const cacheScript = '<script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("/sw.js",{updateViaCache:"none"}).then(registration=>registration.update()).catch(()=>{}),{once:true})}</script>';
 const rawHtml = await readFile("dist/index.html", "utf8");
 const html = rawHtml
@@ -22,10 +23,12 @@ const html = rawHtml
   .replace("||'mint'", "||'executive'")
   .replace("theme==='mint'?'':theme", "theme")
   .replaceAll("assets/app-previews/vaultdb.png", "assets/app-previews/vaultdb.webp")
+  .replace(/\/assets\/vaultdb-[^\"']+\.png/g, "/assets/app-previews/vaultdb.webp")
   .replace('action="mailto:support@trivionapps.com?subject=Trivion%20Apps%20Enquiry" method="post" enctype="text/plain"', 'action="#" method="get"')
+  .replace("Trivion Apps only asks for the details needed to respond to your enquiry. Product-specific data handling is explained inside each application.", "Trivion Apps uses privacy-friendly first-party analytics to count daily visitors and product launches. Anonymous identifiers are stored as one-way hashes; no raw IP addresses, visitor names, or email addresses are collected for analytics. Product-specific data handling is explained inside each application.")
   .replace("const themeSelect=document.querySelector('.theme-select'),themeMeta=document.querySelector('meta[name=\"theme-color\"]'),savedTheme=localStorage.getItem('trivion-theme')||'executive';const applyTheme=theme=>{document.body.dataset.theme=theme;themeSelect.value=theme;localStorage.setItem('trivion-theme',theme);const color=getComputedStyle(document.body).getPropertyValue('--ink').trim();themeMeta?.setAttribute('content',color)};if(themeSelect){applyTheme(savedTheme);themeSelect.addEventListener('change',()=>applyTheme(themeSelect.value))}", "const themePicker=document.querySelector('.theme-picker'),themeButton=themePicker?.querySelector('.theme-picker-button'),themeMenu=themePicker?.querySelector('.theme-picker-menu'),themeLabel=themePicker?.querySelector('[data-theme-label]'),themeMeta=document.querySelector('meta[name=\"theme-color\"]'),savedTheme=localStorage.getItem('trivion-theme')||'executive';const applyTheme=theme=>{document.body.dataset.theme=theme;const option=themePicker?.querySelector('[data-theme-option=\"'+theme+'\"]');if(themeLabel&&option)themeLabel.textContent=option.textContent.trim();if(themeButton&&option){themeButton.querySelector('.theme-swatch').className='theme-swatch '+theme;themeButton.setAttribute('aria-label','Theme: '+theme);themePicker.querySelectorAll('[data-theme-option]').forEach(item=>item.setAttribute('aria-checked',String(item===option)))}localStorage.setItem('trivion-theme',theme);const color=getComputedStyle(document.body).getPropertyValue('--paper').trim();themeMeta?.setAttribute('content',color)};if(themePicker&&themeButton&&themeMenu){applyTheme(savedTheme);themeButton.addEventListener('click',()=>{const open=themeButton.getAttribute('aria-expanded')==='true';themeButton.setAttribute('aria-expanded',String(!open));themeMenu.hidden=open});themePicker.querySelectorAll('[data-theme-option]').forEach(option=>option.addEventListener('click',()=>{applyTheme(option.dataset.themeOption);themeMenu.hidden=true;themeButton.setAttribute('aria-expanded','false')}));document.addEventListener('click',event=>{if(!themePicker.contains(event.target)){themeMenu.hidden=true;themeButton.setAttribute('aria-expanded','false')}})}")
   .replace("</head>", `${favicon}<style>${premiumCss}${themeCss}</style></head>`)
-  .replace("</body>", `${enquiryScript}${cacheScript}</body>`);
+  .replace("</body>", `${enquiryScript}${analyticsScript}${cacheScript}</body>`);
 await writeFile("dist/index.html", html, "utf8");
 const escapedHtml = JSON.stringify(html);
 const assets = {};
@@ -36,14 +39,17 @@ await copyFile(".openai/hosting.json", "dist/.openai/hosting.json");
 
 try {
   for (const file of await readdir("dist/assets")) {
-    if (!file.endsWith(".jpg") && !file.endsWith(".png")) continue;
+    if (!/\.(?:css|js|jpg|jpeg|png|webp|woff|woff2)$/i.test(file)) continue;
+    if (!html.includes(`/assets/${file}`)) continue;
     const bytes = await readFile(`dist/assets/${file}`);
     const encoded = bytes.toString("base64");
     assets[`/assets/${file}`] = encoded;
 
     // The source HTML uses stable preview paths while Vite emits hashed files.
-    const previewName = file.replace(/-[^/]+(?=\.(?:jpg|png)$)/, "");
-    assets[`/assets/app-previews/${previewName}`] = encoded;
+    if (/\.(?:jpg|jpeg|png|webp)$/i.test(file)) {
+      const previewName = file.replace(/-[^/]+(?=\.(?:jpg|jpeg|png|webp)$)/, "");
+      assets[`/assets/app-previews/${previewName}`] = encoded;
+    }
   }
 } catch {
   // The site can still deploy without optional preview assets.
@@ -51,37 +57,14 @@ try {
 
 const vaultDbWebp = await readFile("assets/app-previews/vaultdb.webp");
 assets["/assets/app-previews/vaultdb.webp"] = vaultDbWebp.toString("base64");
+const serviceWorker = await readFile("dist/sw.js");
+assets["/sw.js"] = serviceWorker.toString("base64");
+const workerRuntime = await readFile("worker-runtime.js", "utf8");
 
 await writeFile(
   "dist/server/index.js",
   `const html = ${escapedHtml};
 const assets = ${JSON.stringify(assets)};
-
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-    if (url.pathname === "/" || url.pathname === "/index.html") {
-      return new Response(html, {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "public, max-age=60"
-        }
-      });
-    }
-
-    if (assets[url.pathname]) {
-      const bytes = Uint8Array.from(atob(assets[url.pathname]), character => character.charCodeAt(0));
-      return new Response(bytes, {
-        headers: {
-        "content-type": url.pathname.endsWith(".webp") ? "image/webp" : url.pathname.endsWith(".png") ? "image/png" : "image/jpeg",
-          "cache-control": "public, max-age=31536000, immutable"
-        }
-      });
-    }
-
-    return new Response("Not found", { status: 404 });
-  }
-};
-`,
+${workerRuntime}`,
   "utf8",
 );

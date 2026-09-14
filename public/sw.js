@@ -1,4 +1,4 @@
-const CACHE_NAME = "trivion-shell-v18";
+const CACHE_NAME = "trivion-shell-v19";
 const SHELL = ["/", "/index.html"];
 
 self.addEventListener("install", (event) => {
@@ -22,7 +22,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (request.mode === "navigate") {
+  if (request.mode === "navigate" && (url.pathname === "/" || url.pathname === "/index.html")) {
     const refresh = fetch(request).then(async (response) => {
       if (response.ok) {
         await caches.open(CACHE_NAME).then((cache) => cache.put("/", response.clone()));

@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "drizzle-kit": "^0.31.10",
     "vite": "^5.4.0"
   },
   "dependencies": {
     "docx": "^9.7.1",
+    "drizzle-orm": "^0.45.2",
     "pdf-parse": "^2.4.5"
   }
 }
