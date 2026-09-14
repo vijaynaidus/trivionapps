@@ -73,10 +73,13 @@ function requestContext(request, payload) {
     ...agent,
     country: cleanDimension(cf.country || request.headers.get("cf-ipcountry")),
     region: cleanDimension(cf.region || cf.regionCode),
+    language: cleanDimension(payload.language),
     referrerHost: cleanDimension(payload.referrer, "Direct"),
     campaignSource: cleanDimension(payload.utmSource, "None"),
     campaignMedium: cleanDimension(payload.utmMedium, "None"),
     campaignName: cleanDimension(payload.utmCampaign, "None"),
+    campaignContent: cleanDimension(payload.utmContent, "None"),
+    campaignTerm: cleanDimension(payload.utmTerm, "None"),
     entryPath: cleanDimension(payload.path, "/", 160),
     exitPath: cleanDimension(payload.exitPath || payload.path, "/", 160),
     isReturning: payload.returning ? 1 : 0,
@@ -88,10 +91,11 @@ async function upsertSession(env, eventType, sessionHash, visitorHash, day, cont
   await env.DB.prepare(`
     INSERT INTO visit_sessions (
       session_hash, visitor_hash, day, started_at, last_seen, device_type, browser,
-      operating_system, country, region, referrer_host, campaign_source,
-      campaign_medium, campaign_name, entry_path, exit_path, page_views,
+      operating_system, country, region, language, referrer_host, campaign_source,
+      campaign_medium, campaign_name, campaign_content, campaign_term,
+      entry_path, exit_path, page_views,
       app_launches, is_returning
-    ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(session_hash) DO UPDATE SET
       last_seen = CURRENT_TIMESTAMP,
       exit_path = excluded.exit_path,
@@ -100,10 +104,78 @@ async function upsertSession(env, eventType, sessionHash, visitorHash, day, cont
       is_returning = MAX(is_returning, excluded.is_returning)
   `).bind(
     sessionHash, visitorHash, day, context.deviceType, context.browser,
-    context.operatingSystem, context.country, context.region, context.referrerHost,
+    context.operatingSystem, context.country, context.region, context.language, context.referrerHost,
     context.campaignSource, context.campaignMedium, context.campaignName,
-    context.entryPath, context.exitPath, isPageView ? 1 : 0, isPageView ? 0 : 1,
+    context.campaignContent, context.campaignTerm, context.entryPath, context.exitPath,
+    isPageView ? 1 : 0, isPageView ? 0 : 1,
     context.isReturning,
+  ).run();
+}
+
+async function incrementCounter(env, metric) {
+  await env.DB.prepare(`
+    INSERT INTO daily_counters (day, metric, value) VALUES (?, ?, 1)
+    ON CONFLICT(day, metric) DO UPDATE SET value = value + 1
+  `).bind(dayKey(), metric).run();
+}
+
+async function maintainAnalytics(env) {
+  if (!env.DB) return;
+  const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_counters (day, metric, value) VALUES (?, 'maintenance', 1)`).bind(dayKey()).run();
+  if (!claim.meta?.changes) return;
+  await Promise.all([
+    env.DB.prepare(`DELETE FROM event_facts WHERE day < date('now', '-395 days')`).run(),
+    env.DB.prepare(`DELETE FROM performance_samples WHERE day < date('now', '-395 days')`).run(),
+    env.DB.prepare(`DELETE FROM visit_sessions WHERE day < date('now', '-395 days')`).run(),
+    env.DB.prepare(`DELETE FROM admin_access_logs WHERE day < date('now', '-395 days')`).run(),
+    env.DB.prepare(`DELETE FROM daily_counters WHERE day < date('now', '-395 days')`).run(),
+  ]);
+}
+
+async function touchSession(env, sessionHash, exitPath) {
+  await env.DB.prepare(`
+    UPDATE visit_sessions SET last_seen = CURRENT_TIMESTAMP, exit_path = ? WHERE session_hash = ?
+  `).bind(cleanDimension(exitPath, "/", 160), sessionHash).run();
+}
+
+async function storeEvent(env, payload, eventType, visitorHash, sessionHash, day) {
+  const eventId = String(payload.eventId || "");
+  if (!eventId || eventId.length > 120) return;
+  const eventHash = await anonymousHash(`${sessionHash}:${eventId}`);
+  const app = APP_NAMES[payload.app] ? payload.app : "None";
+  const numericValue = Math.max(-10000000, Math.min(10000000, Number(payload.value) || 0));
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO event_facts (
+      event_hash, visitor_hash, session_hash, day, created_at, event_type,
+      label, app_slug, path, value
+    ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)
+  `).bind(
+    eventHash, visitorHash, sessionHash, day, eventType,
+    cleanDimension(payload.label || payload.app, "Unlabelled"), app,
+    cleanDimension(payload.path, "/", 160), numericValue,
+  ).run();
+}
+
+async function storePerformance(env, payload, visitorHash, sessionHash, day, context) {
+  const metric = (value, maximum) => Math.max(0, Math.min(maximum, Number(value) || 0));
+  await env.DB.prepare(`
+    INSERT INTO performance_samples (
+      session_hash, visitor_hash, day, recorded_at, lcp_ms, inp_ms, cls,
+      load_ms, connection_type, viewport, device_type, country
+    ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(session_hash) DO UPDATE SET
+      recorded_at = CURRENT_TIMESTAMP,
+      lcp_ms = MAX(lcp_ms, excluded.lcp_ms),
+      inp_ms = MAX(inp_ms, excluded.inp_ms),
+      cls = MAX(cls, excluded.cls),
+      load_ms = MAX(load_ms, excluded.load_ms),
+      connection_type = excluded.connection_type,
+      viewport = excluded.viewport
+  `).bind(
+    sessionHash, visitorHash, day, metric(payload.lcp, 120000),
+    metric(payload.inp, 120000), metric(payload.cls, 100), metric(payload.loadMs, 120000),
+    cleanDimension(payload.connection), cleanDimension(payload.viewport),
+    context.deviceType, context.country,
   ).run();
 }
 
@@ -114,6 +186,11 @@ async function trackEvent(request, env) {
     payload = JSON.parse(await request.text());
   } catch {
     return json({ error: "Invalid analytics event" }, 400);
+  }
+
+  if (payload.type === "consent_choice" && ["opt_in", "opt_out"].includes(payload.choice)) {
+    await incrementCounter(env, payload.choice);
+    return new Response(null, { status: 204 });
   }
 
   const visitor = String(payload.visitor || "");
@@ -147,7 +224,33 @@ async function trackEvent(request, env) {
       ON CONFLICT(day, app_slug, visitor_hash) DO UPDATE SET
         last_seen = CURRENT_TIMESTAMP,
         visits = visits + 1
-    `).bind(day, app, hash).run(), upsertSession(env, payload.type, sessionHash, hash, day, context)]);
+    `).bind(day, app, hash).run(), upsertSession(env, payload.type, sessionHash, hash, day, context), storeEvent(env, { ...payload, label: app }, "app_click", hash, sessionHash, day)]);
+    return new Response(null, { status: 204 });
+  }
+
+  if (payload.type === "session_ping") {
+    await touchSession(env, sessionHash, payload.exitPath || payload.path);
+    return new Response(null, { status: 204 });
+  }
+
+  if (payload.type === "performance") {
+    await Promise.all([
+      storePerformance(env, payload, hash, sessionHash, day, context),
+      touchSession(env, sessionHash, payload.path),
+    ]);
+    return new Response(null, { status: 204 });
+  }
+
+  const interactionTypes = new Set([
+    "app_impression", "scroll_depth", "section_time", "contact_start",
+    "contact_submit", "email_click", "navigation_click", "javascript_error",
+    "resource_error",
+  ]);
+  if (payload.type === "interaction" && interactionTypes.has(payload.eventType)) {
+    await Promise.all([
+      storeEvent(env, payload, payload.eventType, hash, sessionHash, day),
+      touchSession(env, sessionHash, payload.path),
+    ]);
     return new Response(null, { status: 204 });
   }
 
@@ -218,6 +321,60 @@ async function loadReport(env, days) {
     dimensionQuery("entry_path", 8),
     dimensionQuery("exit_path", 8),
   ]);
+  const previousStart = `-${days * 2 - 1} days`;
+  const previousEnd = `-${days} days`;
+  const [periods, live, hourly, weekdays, frequency, cohorts, eventSummary, sections, navigation, appSignals, transitions, performance, performanceDevices, consent, adminAccess, scrollDepth, languages, connections, viewports, appCountries, appDevices, appSources, retention, appTrends, appWindows, appPositions, appTiming, exploration] = await Promise.all([
+    env.DB.prepare(`
+      SELECT
+        COUNT(DISTINCT CASE WHEN day >= date('now', ?) THEN visitor_hash END) AS current_visitors,
+        COUNT(DISTINCT CASE WHEN day >= date('now', ?) THEN session_hash END) AS current_sessions,
+        COUNT(DISTINCT CASE WHEN day BETWEEN date('now', ?) AND date('now', ?) THEN visitor_hash END) AS previous_visitors,
+        COUNT(DISTINCT CASE WHEN day BETWEEN date('now', ?) AND date('now', ?) THEN session_hash END) AS previous_sessions
+      FROM visit_sessions
+    `).bind(modifier, modifier, previousStart, previousEnd, previousStart, previousEnd).all(),
+    env.DB.prepare(`SELECT COUNT(DISTINCT visitor_hash) AS visitors, COUNT(*) AS sessions FROM visit_sessions WHERE last_seen >= datetime('now', '-5 minutes')`).all(),
+    env.DB.prepare(`SELECT strftime('%H', started_at) AS label, COUNT(*) AS sessions, COUNT(DISTINCT visitor_hash) AS unique_visitors FROM visit_sessions WHERE day >= date('now', ?) GROUP BY label ORDER BY label`).bind(modifier).all(),
+    env.DB.prepare(`SELECT CASE strftime('%w', started_at) WHEN '0' THEN 'Sunday' WHEN '1' THEN 'Monday' WHEN '2' THEN 'Tuesday' WHEN '3' THEN 'Wednesday' WHEN '4' THEN 'Thursday' WHEN '5' THEN 'Friday' ELSE 'Saturday' END AS label, COUNT(*) AS sessions, COUNT(DISTINCT visitor_hash) AS unique_visitors FROM visit_sessions WHERE day >= date('now', ?) GROUP BY strftime('%w', started_at) ORDER BY sessions DESC`).bind(modifier).all(),
+    env.DB.prepare(`SELECT CASE WHEN visit_days = 1 THEN 'One-time' WHEN visit_days BETWEEN 2 AND 3 THEN 'Returning' WHEN visit_days BETWEEN 4 AND 7 THEN 'Loyal' ELSE 'Highly engaged' END AS label, COUNT(*) AS unique_visitors, SUM(session_count) AS sessions FROM (SELECT visitor_hash, COUNT(DISTINCT day) AS visit_days, COUNT(*) AS session_count FROM visit_sessions GROUP BY visitor_hash) GROUP BY label ORDER BY unique_visitors DESC`).all(),
+    env.DB.prepare(`SELECT strftime('%Y-W%W', first_day) AS label, COUNT(*) AS unique_visitors, SUM(returned) AS sessions FROM (SELECT visitor_hash, MIN(day) AS first_day, CASE WHEN COUNT(DISTINCT day) > 1 THEN 1 ELSE 0 END AS returned FROM visit_sessions GROUP BY visitor_hash) GROUP BY label ORDER BY label DESC LIMIT 12`).all(),
+    env.DB.prepare(`SELECT
+      COUNT(DISTINCT CASE WHEN event_type = 'app_impression' THEN session_hash END) AS app_view_sessions,
+      COUNT(DISTINCT CASE WHEN event_type = 'app_click' THEN session_hash END) AS app_launch_sessions,
+      COUNT(DISTINCT CASE WHEN event_type = 'contact_start' THEN session_hash END) AS contact_starts,
+      COUNT(DISTINCT CASE WHEN event_type = 'contact_submit' THEN session_hash END) AS contact_submits,
+      COUNT(DISTINCT CASE WHEN event_type = 'email_click' THEN session_hash END) AS email_clicks,
+      COUNT(CASE WHEN event_type = 'javascript_error' THEN 1 END) AS javascript_errors,
+      COUNT(CASE WHEN event_type = 'resource_error' THEN 1 END) AS resource_errors
+      FROM event_facts WHERE day >= date('now', ?)
+    `).bind(modifier).all(),
+    env.DB.prepare(`SELECT label, COUNT(DISTINCT visitor_hash) AS unique_visitors, ROUND(SUM(value), 1) AS sessions FROM event_facts WHERE day >= date('now', ?) AND event_type = 'section_time' GROUP BY label ORDER BY SUM(value) DESC LIMIT 10`).bind(modifier).all(),
+    env.DB.prepare(`SELECT label, COUNT(DISTINCT visitor_hash) AS unique_visitors, COUNT(*) AS sessions FROM event_facts WHERE day >= date('now', ?) AND event_type = 'navigation_click' GROUP BY label ORDER BY sessions DESC LIMIT 10`).bind(modifier).all(),
+    env.DB.prepare(`SELECT app_slug,
+      COUNT(DISTINCT CASE WHEN event_type = 'app_impression' THEN visitor_hash END) AS impressions,
+      COUNT(DISTINCT CASE WHEN event_type = 'app_click' THEN visitor_hash END) AS interested_people,
+      COUNT(CASE WHEN event_type = 'app_click' THEN 1 END) AS clicks
+      FROM event_facts WHERE day >= date('now', ?) AND app_slug != 'None'
+      GROUP BY app_slug
+    `).bind(modifier).all(),
+    env.DB.prepare(`SELECT current_app || ' → ' || next_app AS label, COUNT(DISTINCT session_hash) AS unique_visitors, COUNT(*) AS sessions FROM (SELECT session_hash, app_slug AS current_app, LEAD(app_slug) OVER (PARTITION BY session_hash ORDER BY created_at, event_hash) AS next_app FROM event_facts WHERE day >= date('now', ?) AND event_type = 'app_click') WHERE next_app IS NOT NULL AND current_app != next_app GROUP BY current_app, next_app ORDER BY sessions DESC LIMIT 10`).bind(modifier).all(),
+    env.DB.prepare(`SELECT COUNT(*) AS samples, ROUND(AVG(lcp_ms), 0) AS avg_lcp, ROUND(AVG(inp_ms), 0) AS avg_inp, ROUND(AVG(cls), 3) AS avg_cls, ROUND(AVG(load_ms), 0) AS avg_load, ROUND(AVG(CASE WHEN lcp_ms > 0 AND lcp_ms <= 2500 THEN 100.0 ELSE 0 END), 1) AS good_lcp, ROUND(AVG(CASE WHEN inp_ms > 0 AND inp_ms <= 200 THEN 100.0 ELSE 0 END), 1) AS good_inp, ROUND(AVG(CASE WHEN cls <= 0.1 THEN 100.0 ELSE 0 END), 1) AS good_cls FROM performance_samples WHERE day >= date('now', ?)`).bind(modifier).all(),
+    env.DB.prepare(`SELECT device_type AS label, COUNT(*) AS sessions, ROUND(AVG(load_ms), 0) AS unique_visitors FROM performance_samples WHERE day >= date('now', ?) GROUP BY device_type ORDER BY sessions DESC`).bind(modifier).all(),
+    env.DB.prepare(`SELECT metric AS label, SUM(value) AS sessions, 0 AS unique_visitors FROM daily_counters WHERE day >= date('now', ?) AND metric IN ('opt_in', 'opt_out') GROUP BY metric ORDER BY sessions DESC`).bind(modifier).all(),
+    env.DB.prepare(`SELECT outcome AS label, COUNT(*) AS sessions, COUNT(DISTINCT account_hash) AS unique_visitors FROM admin_access_logs WHERE day >= date('now', ?) GROUP BY outcome ORDER BY sessions DESC`).bind(modifier).all(),
+    env.DB.prepare(`SELECT label, COUNT(DISTINCT visitor_hash) AS unique_visitors, COUNT(DISTINCT session_hash) AS sessions FROM event_facts WHERE day >= date('now', ?) AND event_type = 'scroll_depth' GROUP BY label ORDER BY CAST(REPLACE(label, '%', '') AS INTEGER)`).bind(modifier).all(),
+    dimensionQuery("language", 10),
+    env.DB.prepare(`SELECT connection_type AS label, COUNT(*) AS sessions, COUNT(DISTINCT visitor_hash) AS unique_visitors FROM performance_samples WHERE day >= date('now', ?) GROUP BY connection_type ORDER BY sessions DESC LIMIT 8`).bind(modifier).all(),
+    env.DB.prepare(`SELECT viewport AS label, COUNT(*) AS sessions, COUNT(DISTINCT visitor_hash) AS unique_visitors FROM performance_samples WHERE day >= date('now', ?) GROUP BY viewport ORDER BY sessions DESC LIMIT 10`).bind(modifier).all(),
+    env.DB.prepare(`SELECT e.app_slug || ' · ' || s.country AS label, COUNT(DISTINCT e.visitor_hash) AS unique_visitors, COUNT(*) AS sessions FROM event_facts e JOIN visit_sessions s ON s.session_hash = e.session_hash WHERE e.day >= date('now', ?) AND e.event_type = 'app_click' GROUP BY e.app_slug, s.country ORDER BY sessions DESC LIMIT 10`).bind(modifier).all(),
+    env.DB.prepare(`SELECT e.app_slug || ' · ' || s.device_type AS label, COUNT(DISTINCT e.visitor_hash) AS unique_visitors, COUNT(*) AS sessions FROM event_facts e JOIN visit_sessions s ON s.session_hash = e.session_hash WHERE e.day >= date('now', ?) AND e.event_type = 'app_click' GROUP BY e.app_slug, s.device_type ORDER BY sessions DESC LIMIT 10`).bind(modifier).all(),
+    env.DB.prepare(`SELECT e.app_slug || ' · ' || s.referrer_host AS label, COUNT(DISTINCT e.visitor_hash) AS unique_visitors, COUNT(*) AS sessions FROM event_facts e JOIN visit_sessions s ON s.session_hash = e.session_hash WHERE e.day >= date('now', ?) AND e.event_type = 'app_click' GROUP BY e.app_slug, s.referrer_host ORDER BY sessions DESC LIMIT 10`).bind(modifier).all(),
+    env.DB.prepare(`WITH firsts AS (SELECT visitor_hash, MIN(day) AS first_day FROM visit_sessions GROUP BY visitor_hash) SELECT COUNT(*) AS cohort_size, SUM(CASE WHEN EXISTS (SELECT 1 FROM visit_sessions s WHERE s.visitor_hash = firsts.visitor_hash AND s.day > firsts.first_day AND s.day <= date(firsts.first_day, '+7 days')) THEN 1 ELSE 0 END) AS returned_7d, SUM(CASE WHEN EXISTS (SELECT 1 FROM visit_sessions s WHERE s.visitor_hash = firsts.visitor_hash AND s.day > firsts.first_day AND s.day <= date(firsts.first_day, '+30 days')) THEN 1 ELSE 0 END) AS returned_30d FROM firsts WHERE first_day >= date('now', ?)`).bind(modifier).all(),
+    env.DB.prepare(`SELECT app_slug, SUM(CASE WHEN day >= date('now', ?) THEN visits ELSE 0 END) AS current_launches, SUM(CASE WHEN day BETWEEN date('now', ?) AND date('now', ?) THEN visits ELSE 0 END) AS previous_launches FROM app_visits WHERE day >= date('now', ?) GROUP BY app_slug`).bind(modifier, previousStart, previousEnd, previousStart).all(),
+    env.DB.prepare(`SELECT app_slug, SUM(CASE WHEN day = date('now') THEN visits ELSE 0 END) AS today, SUM(CASE WHEN day >= date('now', '-6 days') THEN visits ELSE 0 END) AS week, SUM(CASE WHEN day >= date('now', '-29 days') THEN visits ELSE 0 END) AS month FROM app_visits WHERE day >= date('now', '-29 days') GROUP BY app_slug`).all(),
+    env.DB.prepare(`SELECT CASE position WHEN 1 THEN 'First · ' ELSE 'Second · ' END || app_slug AS label, COUNT(DISTINCT visitor_hash) AS unique_visitors, COUNT(*) AS sessions FROM (SELECT visitor_hash, session_hash, app_slug, ROW_NUMBER() OVER (PARTITION BY session_hash ORDER BY created_at, event_hash) AS position FROM event_facts WHERE day >= date('now', ?) AND event_type = 'app_click') WHERE position <= 2 GROUP BY position, app_slug ORDER BY position, sessions DESC LIMIT 12`).bind(modifier).all(),
+    env.DB.prepare(`SELECT e.app_slug AS label, COUNT(DISTINCT e.visitor_hash) AS unique_visitors, ROUND(AVG(MAX(0, (julianday(e.created_at) - julianday(s.started_at)) * 86400)), 1) AS sessions FROM event_facts e JOIN visit_sessions s ON s.session_hash = e.session_hash WHERE e.day >= date('now', ?) AND e.event_type = 'app_click' GROUP BY e.app_slug ORDER BY sessions ASC LIMIT 10`).bind(modifier).all(),
+    env.DB.prepare(`SELECT COUNT(DISTINCT visitor_hash) AS visitors, ROUND(AVG(app_count), 2) AS avg_apps, SUM(CASE WHEN app_count > 1 THEN 1 ELSE 0 END) AS multi_app_visitors FROM (SELECT visitor_hash, COUNT(DISTINCT app_slug) AS app_count FROM event_facts WHERE day >= date('now', ?) AND event_type = 'app_click' GROUP BY visitor_hash)`).bind(modifier).all(),
+  ]);
   return {
     daily: daily.results || [],
     apps: apps.results || [],
@@ -231,6 +388,34 @@ async function loadReport(env, days) {
     campaigns: campaigns.results || [],
     entries: entries.results || [],
     exits: exits.results || [],
+    periods: periods.results?.[0] || {},
+    live: live.results?.[0] || {},
+    hourly: hourly.results || [],
+    weekdays: weekdays.results || [],
+    frequency: frequency.results || [],
+    cohorts: cohorts.results || [],
+    eventSummary: eventSummary.results?.[0] || {},
+    sections: sections.results || [],
+    navigation: navigation.results || [],
+    appSignals: appSignals.results || [],
+    transitions: transitions.results || [],
+    performance: performance.results?.[0] || {},
+    performanceDevices: performanceDevices.results || [],
+    consent: consent.results || [],
+    adminAccess: adminAccess.results || [],
+    scrollDepth: scrollDepth.results || [],
+    languages: languages.results || [],
+    connections: connections.results || [],
+    viewports: viewports.results || [],
+    appCountries: appCountries.results || [],
+    appDevices: appDevices.results || [],
+    appSources: appSources.results || [],
+    retention: retention.results?.[0] || {},
+    appTrends: appTrends.results || [],
+    appWindows: appWindows.results || [],
+    appPositions: appPositions.results || [],
+    appTiming: appTiming.results || [],
+    exploration: exploration.results?.[0] || {},
   };
 }
 
@@ -249,6 +434,13 @@ function ownerGate(request) {
     });
   }
   return null;
+}
+
+async function logAdminAccess(request, env, outcome) {
+  if (!env.DB) return;
+  const identity = request.headers.get("oai-authenticated-user-id") || request.headers.get("oai-authenticated-user-email") || "anonymous";
+  const accountHash = await anonymousHash(identity.toLowerCase());
+  await env.DB.prepare(`INSERT INTO admin_access_logs (day, accessed_at, account_hash, outcome) VALUES (?, CURRENT_TIMESTAMP, ?, ?)`).bind(dayKey(), accountHash, outcome).run();
 }
 
 function adminShell(content, title = "Audience intelligence") {
@@ -296,7 +488,7 @@ function dimensionPanel(title, note, rows) {
   return `<article class="panel"><div class="panel-head"><div><small>Audience detail</small><h2>${escapeHtml(title)}</h2><p class="panel-note">${escapeHtml(note)}</p></div></div><table><thead><tr><th>Segment</th><th class="num">People</th><th class="num">Sessions</th></tr></thead><tbody>${dimensionRows(rows)}</tbody></table></article>`;
 }
 
-function renderAdmin(report, days) {
+function renderAdminBase(report, days) {
   const today = report.daily.find((row) => row.day === dayKey()) || { unique_visitors: 0, page_views: 0 };
   const summary = report.summary || {};
   const totalViews = report.daily.reduce((sum, row) => sum + Number(row.page_views || 0), 0);
@@ -322,6 +514,59 @@ function renderAdmin(report, days) {
   return adminShell(`<header class="top shell"><div class="brand"><i></i>Trivion Apps Intelligence</div><nav><a class="button" href="/admin/export.csv?days=${days}">Export CSV</a><a class="button" href="/">View site</a><a class="button" href="/signout-with-chatgpt?return_to=%2F">Sign out</a></nav></header><main class="shell"><div class="eyebrow">Private owner dashboard</div><h1>Audience and product intelligence.</h1><p class="lede">Understand who is visiting, how they arrive, what technology they use, and which Trivion application earns the most interest.</p><div class="range">${[7, 30, 90].map((value) => `<a class="${days === value ? "active" : ""}" href="/admin?days=${value}">${value} days</a>`).join("")}<span class="freshness">Live first-party data</span></div><section class="metrics"><article class="metric"><span>Visitors today</span><strong>${number(today.unique_visitors)}</strong></article><article class="metric"><span>Page views today</span><strong>${number(today.page_views)}</strong></article><article class="metric"><span>Unique visitors</span><strong>${number(summary.unique_visitors)}</strong></article><article class="metric"><span>Sessions</span><strong>${number(sessions)}</strong></article><article class="metric"><span>Returning sessions</span><strong>${number(returningRate, 1)}%</strong></article><article class="metric"><span>Average session</span><strong>${duration(summary.avg_session_seconds)}</strong><span>${number(summary.pages_per_session, 1)} pages per session</span></article></section><section class="spotlight"><div><div class="eyebrow">Highest product interest</div><strong>${leader.launches ? escapeHtml(leader.name) : "Collecting activity"}</strong><p class="panel-note">${escapeHtml(leaderText)}</p></div><div class="score"><small>Portfolio launches</small><strong>${number(totalLaunches)}</strong></div></section><section class="panel wide"><div class="panel-head"><div><small>All 14 applications</small><h2>Product interest leaderboard</h2><p class="panel-note">Ranked by unique interested people, then repeat launches. Share is each app's portion of portfolio launches.</p></div><small>${days}-day view</small></div><table><thead><tr><th>Application</th><th class="num">People</th><th class="num">Launches</th><th class="num">Share</th></tr></thead><tbody>${appRows}</tbody></table></section><section class="grids"><article class="panel"><div class="panel-head"><div><small>Traffic</small><h2>Daily audience</h2></div><small>${number(totalViews)} page views</small></div><table><thead><tr><th>Date</th><th class="num">Visitors</th><th class="num">Views</th></tr></thead><tbody>${dailyRows}</tbody></table></article>${dimensionPanel("Referrals", "The websites and channels sending visitors.", report.referrers)}</section><h2 class="section-title">Audience profile</h2><section class="panel-grid">${dimensionPanel("Countries", "Approximate country from edge location.", report.countries)}${dimensionPanel("Regions", "Approximate regional distribution.", report.regions)}${dimensionPanel("Devices", "Desktop, mobile, tablet, or bot.", report.devices)}${dimensionPanel("Browsers", "Browser families used by visitors.", report.browsers)}${dimensionPanel("Operating systems", "Platform distribution across sessions.", report.operatingSystems)}${campaignPanel}</section><h2 class="section-title">Visitor journey</h2><section class="journey">${dimensionPanel("Entry pages", "First page recorded in each session.", report.entries)}${dimensionPanel("Exit destinations", "Last page or application launch recorded.", report.exits)}</section><p class="privacy">Detailed analytics starts with this release. Visitor and session identifiers are stored only as one-way hashes. Location is approximate; raw IP addresses, names, emails, full referral URLs, and personal query data are not retained.</p></main>`);
 }
 
+function growth(current, previous) {
+  const now = Number(current || 0);
+  const before = Number(previous || 0);
+  if (!before) return now ? "+100%" : "0%";
+  const result = (now - before) / before * 100;
+  return `${result >= 0 ? "+" : ""}${number(result, 1)}%`;
+}
+
+function reportPanel(title, note, rows, activityLabel = "Activity") {
+  const body = rows.length ? rows.map((row) => `<tr><td><strong>${escapeHtml(row.label)}</strong></td><td class="num">${number(row.unique_visitors)}</td><td class="num">${number(row.sessions, 1)}</td></tr>`).join("") : `<tr><td colspan="3" class="empty">Collecting activity.</td></tr>`;
+  return `<article class="panel"><div class="panel-head"><div><small>Intelligence</small><h2>${escapeHtml(title)}</h2><p class="panel-note">${escapeHtml(note)}</p></div></div><table><thead><tr><th>Segment</th><th class="num">People</th><th class="num">${escapeHtml(activityLabel)}</th></tr></thead><tbody>${body}</tbody></table></article>`;
+}
+
+function renderAdmin(report, days) {
+  const base = renderAdminBase(report, days);
+  const periods = report.periods || {};
+  const events = report.eventSummary || {};
+  const performance = report.performance || {};
+  const retention = report.retention || {};
+  const cohortSize = Number(retention.cohort_size || 0);
+  const appViewSessions = Number(events.app_view_sessions || 0);
+  const appLaunchSessions = Number(events.app_launch_sessions || 0);
+  const contactStarts = Number(events.contact_starts || 0);
+  const contactSubmits = Number(events.contact_submits || 0);
+  const appConversion = appViewSessions ? appLaunchSessions / appViewSessions * 100 : 0;
+  const contactConversion = contactStarts ? contactSubmits / contactStarts * 100 : 0;
+  const windowLeader = (field) => report.appWindows.reduce((best, row) => Number(row[field] || 0) > Number(best?.[field] || 0) ? row : best, null);
+  const todayLeader = windowLeader("today");
+  const weekLeader = windowLeader("week");
+  const monthLeader = windowLeader("month");
+  const trendRows = report.appTrends.map((row) => {
+    const current = Number(row.current_launches || 0);
+    const previous = Number(row.previous_launches || 0);
+    const change = previous ? (current - previous) / previous * 100 : current ? 100 : 0;
+    return { label: APP_NAMES[row.app_slug] || row.app_slug, unique_visitors: current, sessions: change };
+  }).sort((a, b) => b.sessions - a.sessions);
+  const visitorGrowth = growth(periods.current_visitors, periods.previous_visitors);
+  const alerts = [];
+  if (Number(events.javascript_errors || 0) + Number(events.resource_errors || 0) > 0) alerts.push("Technical errors need review.");
+  if (Number(performance.samples || 0) && Number(performance.good_lcp || 0) < 75) alerts.push("Loading performance needs attention.");
+  if (appViewSessions >= 5 && appConversion < 10) alerts.push("Application-card conversion is below 10%.");
+  if (!alerts.length) alerts.push("No critical engagement or reliability warning is active.");
+  const executiveBrief = `<section class="spotlight"><div><div class="eyebrow">Executive brief</div><strong>Visitor movement ${escapeHtml(visitorGrowth)}</strong><p class="panel-note">Today's leader: ${escapeHtml(todayLeader ? APP_NAMES[todayLeader.app_slug] : "collecting data")}. Weekly leader: ${escapeHtml(weekLeader ? APP_NAMES[weekLeader.app_slug] : "collecting data")}. Monthly leader: ${escapeHtml(monthLeader ? APP_NAMES[monthLeader.app_slug] : "collecting data")}.</p></div><div class="score"><small>Decision signal</small><strong>${escapeHtml(alerts[0])}</strong></div></section>`;
+  const signalRows = report.appSignals.length ? report.appSignals.map((row) => {
+    const impressions = Number(row.impressions || 0);
+    const clicks = Number(row.clicks || 0);
+    return `<tr><td><strong>${escapeHtml(APP_NAMES[row.app_slug] || row.app_slug)}</strong></td><td class="num">${number(impressions)}</td><td class="num">${number(row.interested_people)}</td><td class="num">${number(impressions ? clicks / impressions * 100 : 0, 1)}%</td></tr>`;
+  }).join("") : `<tr><td colspan="4" class="empty">Collecting impression and conversion data.</td></tr>`;
+  const advanced = `<h2 class="section-title">Executive movement</h2><section class="metrics"><article class="metric"><span>Visitors vs prior period</span><strong>${growth(periods.current_visitors, periods.previous_visitors)}</strong><span>${number(periods.current_visitors)} current · ${number(periods.previous_visitors)} prior</span></article><article class="metric"><span>Sessions vs prior period</span><strong>${growth(periods.current_sessions, periods.previous_sessions)}</strong><span>${number(periods.current_sessions)} current · ${number(periods.previous_sessions)} prior</span></article><article class="metric"><span>Active in last 5 minutes</span><strong>${number(report.live.visitors)}</strong><span>${number(report.live.sessions)} live sessions</span></article><article class="metric"><span>App conversion</span><strong>${number(appConversion, 1)}%</strong><span>Card view to application launch</span></article><article class="metric"><span>Contact conversion</span><strong>${number(contactConversion, 1)}%</strong><span>${number(contactSubmits)} completed of ${number(contactStarts)} starts</span></article><article class="metric"><span>7-day return</span><strong>${number(cohortSize ? Number(retention.returned_7d || 0) / cohortSize * 100 : 0, 1)}%</strong><span>30-day: ${number(cohortSize ? Number(retention.returned_30d || 0) / cohortSize * 100 : 0, 1)}%</span></article></section><h2 class="section-title">Application conversion</h2><section class="panel wide"><div class="panel-head"><div><small>Portfolio funnel</small><h2>Impression-to-interest performance</h2><p class="panel-note">Shows which visible application cards turn attention into launches.</p></div></div><table><thead><tr><th>Application</th><th class="num">Card viewers</th><th class="num">Interested people</th><th class="num">Conversion</th></tr></thead><tbody>${signalRows}</tbody></table></section><h2 class="section-title">Engagement and navigation</h2><section class="panel-grid">${reportPanel("Scroll depth", "How far visitors travel through the flagship page.", report.scrollDepth, "Sessions")}${reportPanel("Section attention", "Total attentive seconds by page section.", report.sections, "Seconds")}${reportPanel("Navigation actions", "The most selected internal navigation controls.", report.navigation, "Clicks")}${reportPanel("Application sequences", "Common transitions between two application launches.", report.transitions, "Journeys")}${reportPanel("Traffic by hour", "UTC session distribution by hour.", report.hourly, "Sessions")}${reportPanel("Traffic by weekday", "The strongest days for portfolio discovery.", report.weekdays, "Sessions")}</section><h2 class="section-title">Retention and audience quality</h2><section class="panel-grid">${reportPanel("Visitor frequency", "One-time, returning, loyal, and highly engaged visitors.", report.frequency, "Sessions")}${reportPanel("Acquisition cohorts", "Weekly first-visit groups and observed returns.", report.cohorts, "Returned")}${dimensionPanel("Languages", "Browser language preferences.", report.languages)}${reportPanel("App interest by country", "Leading application and country combinations.", report.appCountries, "Launches")}${reportPanel("App interest by device", "Application demand across device classes.", report.appDevices, "Launches")}${reportPanel("App interest by source", "Applications launched from each referral source.", report.appSources, "Launches")}</section><h2 class="section-title">Experience and reliability</h2><section class="metrics"><article class="metric"><span>Average LCP</span><strong>${number(performance.avg_lcp)}ms</strong><span>${number(performance.good_lcp, 1)}% at or below 2.5s</span></article><article class="metric"><span>Average INP</span><strong>${number(performance.avg_inp)}ms</strong><span>${number(performance.good_inp, 1)}% at or below 200ms</span></article><article class="metric"><span>Average CLS</span><strong>${number(performance.avg_cls, 3)}</strong><span>${number(performance.good_cls, 1)}% at or below 0.1</span></article><article class="metric"><span>Average page load</span><strong>${number(performance.avg_load)}ms</strong><span>${number(performance.samples)} field samples</span></article><article class="metric"><span>JavaScript errors</span><strong>${number(events.javascript_errors)}</strong><span>Unhandled runtime problems</span></article><article class="metric"><span>Resource failures</span><strong>${number(events.resource_errors)}</strong><span>Images, scripts, or styles</span></article></section><section class="panel-grid">${reportPanel("Load time by device", "Average field load time for each device class.", report.performanceDevices, "Avg ms")}${reportPanel("Connection quality", "Reported effective network categories.", report.connections, "Samples")}${reportPanel("Viewport sizes", "Most common screen viewport dimensions.", report.viewports, "Samples")}</section><h2 class="section-title">Privacy and governance</h2><section class="journey">${reportPanel("Privacy choices", "Anonymous opt-in and opt-out preference changes.", report.consent, "Changes")}${reportPanel("Report access", "Hashed owner, denied, and signed-out access events.", report.adminAccess, "Attempts")}</section>`;
+  const portfolioAdvanced = `<h2 class="section-title">Portfolio momentum</h2><section class="metrics"><article class="metric"><span>Top app today</span><strong>${escapeHtml(todayLeader ? APP_NAMES[todayLeader.app_slug] : "Pending")}</strong><span>${number(todayLeader?.today)} launches</span></article><article class="metric"><span>Top app this week</span><strong>${escapeHtml(weekLeader ? APP_NAMES[weekLeader.app_slug] : "Pending")}</strong><span>${number(weekLeader?.week)} launches</span></article><article class="metric"><span>Top app this month</span><strong>${escapeHtml(monthLeader ? APP_NAMES[monthLeader.app_slug] : "Pending")}</strong><span>${number(monthLeader?.month)} launches</span></article><article class="metric"><span>Apps per explorer</span><strong>${number(report.exploration.avg_apps, 1)}</strong><span>${number(report.exploration.multi_app_visitors)} multi-app visitors</span></article></section><section class="panel-grid">${reportPanel("Fastest momentum", "Launch change compared with the previous matching period.", trendRows, "% change")}${reportPanel("First and second choices", "Applications selected first and second in a session.", report.appPositions, "Selections")}${reportPanel("Time to launch", "Average seconds from entry to application launch.", report.appTiming, "Seconds")}</section>`;
+  return base.replace('<section class="spotlight">', `${executiveBrief}<section class="spotlight">`).replace('<p class="privacy">', `${advanced}${portfolioAdvanced}<p class="privacy">`);
+}
+
 function csvCell(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
@@ -337,6 +582,22 @@ function renderCsv(report) {
     for (const row of values) rows.push([section, row.label, row.unique_visitors, row.sessions, "sessions"].map(csvCell).join(","));
   }
   for (const row of report.campaigns) rows.push(["campaign", row.campaign_source, row.unique_visitors, row.sessions, `${row.campaign_medium} / ${row.campaign_name}`].map(csvCell).join(","));
+  for (const [section, values, detail] of [
+    ["hour", report.hourly, "sessions"], ["weekday", report.weekdays, "sessions"],
+    ["frequency", report.frequency, "sessions"], ["cohort", report.cohorts, "returned"],
+    ["scroll_depth", report.scrollDepth, "sessions"], ["section_attention", report.sections, "seconds"],
+    ["navigation", report.navigation, "clicks"], ["app_sequence", report.transitions, "journeys"],
+    ["language", report.languages, "sessions"], ["connection", report.connections, "samples"],
+    ["viewport", report.viewports, "samples"], ["app_country", report.appCountries, "launches"],
+    ["app_device", report.appDevices, "launches"], ["app_source", report.appSources, "launches"],
+    ["privacy", report.consent, "changes"], ["admin_access", report.adminAccess, "attempts"],
+  ]) {
+    for (const row of values) rows.push([section, row.label, row.unique_visitors, row.sessions, detail].map(csvCell).join(","));
+  }
+  for (const row of report.appSignals) rows.push(["application_funnel", APP_NAMES[row.app_slug] || row.app_slug, row.interested_people, row.clicks, `${row.impressions} viewers`].map(csvCell).join(","));
+  rows.push(["performance", "LCP", "", report.performance.avg_lcp || 0, `${report.performance.good_lcp || 0}% good`].map(csvCell).join(","));
+  rows.push(["performance", "INP", "", report.performance.avg_inp || 0, `${report.performance.good_inp || 0}% good`].map(csvCell).join(","));
+  rows.push(["performance", "CLS", "", report.performance.avg_cls || 0, `${report.performance.good_cls || 0}% good`].map(csvCell).join(","));
   return rows.join("\n");
 }
 
@@ -361,12 +622,15 @@ function assetResponse(pathname) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (request.method === "POST" && url.pathname === "/api/analytics") {
       try {
-        return await trackEvent(request, env);
+        const response = await trackEvent(request, env);
+        const maintenance = maintainAnalytics(env).catch((error) => console.error("analytics_maintenance_failed", error));
+        if (ctx?.waitUntil) ctx.waitUntil(maintenance); else await maintenance;
+        return response;
       } catch (error) {
         console.error("analytics_write_failed", error);
         return new Response(null, { status: 204 });
@@ -374,7 +638,11 @@ export default {
     }
 
     if (request.method === "GET" && ["/admin", "/admin/", "/admin/export.csv"].includes(url.pathname)) {
+      const owner = currentOwner(request);
       const gate = ownerGate(request);
+      const outcome = owner.allowed ? "owner" : owner.signedIn ? "denied" : "signed_out";
+      const audit = logAdminAccess(request, env, outcome).catch((error) => console.error("admin_audit_failed", error));
+      if (ctx?.waitUntil) ctx.waitUntil(audit); else await audit;
       if (gate) return gate;
       if (!env.DB) return new Response(adminShell(`<main class="gate"><section class="gate-card"><div class="eyebrow">Temporarily unavailable</div><h1>Analytics is not connected.</h1><p class="lede">The reporting database is unavailable. Please try again shortly.</p></section></main>`), { status: 503, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
       const requestedDays = Number(url.searchParams.get("days"));
