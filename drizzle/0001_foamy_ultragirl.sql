@@ -1,0 +1,21 @@
+CREATE TABLE `visit_sessions` (
+	`session_hash` text PRIMARY KEY NOT NULL,
+	`visitor_hash` text NOT NULL,
+	`day` text NOT NULL,
+	`started_at` text NOT NULL,
+	`last_seen` text NOT NULL,
+	`device_type` text NOT NULL,
+	`browser` text NOT NULL,
+	`operating_system` text NOT NULL,
+	`country` text NOT NULL,
+	`region` text NOT NULL,
+	`referrer_host` text NOT NULL,
+	`campaign_source` text NOT NULL,
+	`campaign_medium` text NOT NULL,
+	`campaign_name` text NOT NULL,
+	`entry_path` text NOT NULL,
+	`exit_path` text NOT NULL,
+	`page_views` integer DEFAULT 1 NOT NULL,
+	`app_launches` integer DEFAULT 0 NOT NULL,
+	`is_returning` integer DEFAULT false NOT NULL
+);
