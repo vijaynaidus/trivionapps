@@ -1,4 +1,4 @@
-const CACHE_NAME = "trivion-shell-v21";
+const CACHE_NAME = "trivion-shell-v22";
 const SHELL = ["/", "/index.html"];
 
 self.addEventListener("install", (event) => {

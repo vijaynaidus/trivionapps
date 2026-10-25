@@ -16,6 +16,22 @@ const APP_NAMES = {
   securepilot: "SecurePilot",
   finvault: "FinVault",
 };
+const APP_URLS = {
+  arthataxai: "https://arthataxai.trivionapps.com/",
+  marketpilot: "https://marketpilot.trivionapps.com/",
+  "cinemagic-ai": "https://cinemagic.trivionapps.com/",
+  "life-guardian": "https://lifeguardian.trivionapps.com/",
+  "screen-share": "https://screenshare.trivionapps.com/",
+  sanatana: "https://sanatana.trivionapps.com/",
+  accessbridge: "https://accessbridge.trivionapps.com/",
+  ultraforge: "https://ultraforge.trivionapps.com/",
+  dashforge: "https://dashforge.trivionapps.com/",
+  pulsedesk: "https://pulsedesk.trivionapps.com/",
+  pulseboard: "https://pulseboard.trivionapps.com/",
+  dbvault: "https://dbvault.trivionapps.com/",
+  securepilot: "https://securepilot.trivionapps.com/",
+  finvault: "https://finvault.trivionapps.com/",
+};
 
 const textEncoder = new TextEncoder();
 const dayKey = () => new Date().toISOString().slice(0, 10);
@@ -122,14 +138,89 @@ async function incrementCounter(env, metric) {
 async function maintainAnalytics(env) {
   if (!env.DB) return;
   const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_counters (day, metric, value) VALUES (?, 'maintenance', 1)`).bind(dayKey()).run();
+  if (claim.meta?.changes) {
+    await Promise.all([
+      env.DB.prepare(`DELETE FROM event_facts WHERE day < date('now', '-395 days')`).run(),
+      env.DB.prepare(`DELETE FROM performance_samples WHERE day < date('now', '-395 days')`).run(),
+      env.DB.prepare(`DELETE FROM visit_sessions WHERE day < date('now', '-395 days')`).run(),
+      env.DB.prepare(`DELETE FROM admin_access_logs WHERE day < date('now', '-395 days')`).run(),
+      env.DB.prepare(`DELETE FROM daily_counters WHERE day < date('now', '-395 days')`).run(),
+      env.DB.prepare(`DELETE FROM app_health_checks WHERE day < date('now', '-395 days')`).run(),
+    ]);
+  }
+  await Promise.all([monitorPortfolio(env), backupAnalytics(env)]);
+}
+
+async function monitorPortfolio(env) {
+  const hour = new Date().toISOString().slice(0, 13);
+  const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_counters (day, metric, value) VALUES (?, ?, 1)`).bind(dayKey(), `health_${hour}`).run();
   if (!claim.meta?.changes) return;
-  await Promise.all([
-    env.DB.prepare(`DELETE FROM event_facts WHERE day < date('now', '-395 days')`).run(),
-    env.DB.prepare(`DELETE FROM performance_samples WHERE day < date('now', '-395 days')`).run(),
-    env.DB.prepare(`DELETE FROM visit_sessions WHERE day < date('now', '-395 days')`).run(),
-    env.DB.prepare(`DELETE FROM admin_access_logs WHERE day < date('now', '-395 days')`).run(),
-    env.DB.prepare(`DELETE FROM daily_counters WHERE day < date('now', '-395 days')`).run(),
+  await Promise.all(Object.entries(APP_URLS).map(async ([app, url]) => {
+    const started = Date.now();
+    let statusCode = 0;
+    let available = 0;
+    let error = "";
+    try {
+      const response = await fetch(url, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(5000) });
+      statusCode = response.status;
+      available = response.status < 500 ? 1 : 0;
+    } catch (reason) {
+      error = cleanDimension(reason?.name || "Request failed", "Request failed");
+    }
+    await env.DB.prepare(`INSERT INTO app_health_checks (day, checked_at, app_slug, url, status_code, response_ms, available, error) VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?)`).bind(dayKey(), app, url, statusCode, Date.now() - started, available, error).run();
+  }));
+}
+
+async function backupAnalytics(env) {
+  if (!env.BACKUPS) return;
+  const claim = await env.DB.prepare(`INSERT OR IGNORE INTO daily_counters (day, metric, value) VALUES (?, ?, 1)`).bind(dayKey(), `backup_${dayKey()}`).run();
+  if (!claim.meta?.changes) return;
+  const [daily, apps, health] = await Promise.all([
+    env.DB.prepare(`SELECT * FROM daily_visitors WHERE day >= date('now', '-395 days')`).all(),
+    env.DB.prepare(`SELECT * FROM app_visits WHERE day >= date('now', '-395 days')`).all(),
+    env.DB.prepare(`SELECT * FROM app_health_checks WHERE day >= date('now', '-30 days')`).all(),
   ]);
+  await env.BACKUPS.put(`analytics/${dayKey()}.json`, JSON.stringify({ createdAt: new Date().toISOString(), daily: daily.results || [], apps: apps.results || [], health: health.results || [] }), { httpMetadata: { contentType: "application/json" } });
+}
+
+async function receiveEnquiry(request, env) {
+  if (!env.DB) return json({ error: "Enquiries are temporarily unavailable" }, 503);
+  let payload;
+  try { payload = await request.json(); } catch { return json({ error: "Invalid enquiry" }, 400); }
+  if (payload.website) return json({ ok: true });
+  const name = cleanDimension(payload.name, "", 80);
+  const email = cleanDimension(payload.email, "", 160).toLowerCase();
+  const company = cleanDimension(payload.company, "", 120);
+  const message = cleanDimension(payload.message, "", 3000);
+  if (!payload.consent || name.length < 2 || message.length < 10 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Please complete all required fields and accept the privacy notice" }, 400);
+  const visitorHash = await anonymousHash(String(payload.visitor || email));
+  const recent = await env.DB.prepare(`SELECT COUNT(*) AS total FROM enquiries WHERE visitor_hash = ? AND created_at >= datetime('now', '-1 hour')`).bind(visitorHash).all();
+  if (Number(recent.results?.[0]?.total || 0) >= 5) return json({ error: "Too many enquiries. Please try again later" }, 429);
+  const id = crypto.randomUUID();
+  await env.DB.prepare(`INSERT INTO enquiries (id, created_at, name, email, company, message, visitor_hash, status, consent) VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, 'new', 1)`).bind(id, name, email, company, message, visitorHash).run();
+  return json({ ok: true, reference: id.slice(0, 8) }, 201);
+}
+
+function directEventHeaders(origin) {
+  return { "access-control-allow-origin": origin, "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type", "access-control-max-age": "86400", "cache-control": "no-store" };
+}
+
+async function receiveDirectAppEvent(request, env) {
+  const origin = request.headers.get("origin") || "";
+  let hostname = "";
+  try { hostname = new URL(origin).hostname; } catch {}
+  const app = Object.entries(APP_URLS).find(([, url]) => new URL(url).hostname === hostname)?.[0];
+  if (!app) return json({ error: "Unapproved application origin" }, 403);
+  let payload;
+  try { payload = await request.json(); } catch { return json({ error: "Invalid event" }, 400); }
+  const visitor = String(payload.visitor || "");
+  const session = String(payload.session || "");
+  const eventId = String(payload.eventId || "");
+  if (!visitor || !session || !eventId || visitor.length > 120 || session.length > 120 || eventId.length > 120) return json({ error: "Invalid event identity" }, 400);
+  const [visitorHash, sessionHash, eventHash] = await Promise.all([anonymousHash(visitor), anonymousHash(`${visitor}:${session}`), anonymousHash(`${app}:${eventId}`)]);
+  const eventType = ["page_view", "conversion", "feature_use"].includes(payload.eventType) ? payload.eventType : "feature_use";
+  await env.DB.prepare(`INSERT OR IGNORE INTO direct_app_events (event_hash, day, created_at, app_slug, visitor_hash, session_hash, event_type, label, value) VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?)`).bind(eventHash, dayKey(), app, visitorHash, sessionHash, eventType, cleanDimension(payload.label, eventType), Math.max(0, Math.min(10000000, Number(payload.value) || 0))).run();
+  return new Response(null, { status: 204, headers: directEventHeaders(origin) });
 }
 
 async function touchSession(env, sessionHash, exitPath) {
@@ -375,6 +466,12 @@ async function loadReport(env, days) {
     env.DB.prepare(`SELECT e.app_slug AS label, COUNT(DISTINCT e.visitor_hash) AS unique_visitors, ROUND(AVG(MAX(0, (julianday(e.created_at) - julianday(s.started_at)) * 86400)), 1) AS sessions FROM event_facts e JOIN visit_sessions s ON s.session_hash = e.session_hash WHERE e.day >= date('now', ?) AND e.event_type = 'app_click' GROUP BY e.app_slug ORDER BY sessions ASC LIMIT 10`).bind(modifier).all(),
     env.DB.prepare(`SELECT COUNT(DISTINCT visitor_hash) AS visitors, ROUND(AVG(app_count), 2) AS avg_apps, SUM(CASE WHEN app_count > 1 THEN 1 ELSE 0 END) AS multi_app_visitors FROM (SELECT visitor_hash, COUNT(DISTINCT app_slug) AS app_count FROM event_facts WHERE day >= date('now', ?) AND event_type = 'app_click' GROUP BY visitor_hash)`).bind(modifier).all(),
   ]);
+  const [health, enquiries, search, directApps] = await Promise.all([
+    env.DB.prepare(`SELECT h.app_slug, h.status_code, h.response_ms, h.available, h.error, h.checked_at FROM app_health_checks h JOIN (SELECT app_slug, MAX(checked_at) AS latest FROM app_health_checks GROUP BY app_slug) x ON x.app_slug = h.app_slug AND x.latest = h.checked_at ORDER BY h.app_slug`).all(),
+    env.DB.prepare(`SELECT id, created_at, name, email, company, message, status FROM enquiries ORDER BY created_at DESC LIMIT 20`).all(),
+    env.DB.prepare(`SELECT query AS label, SUM(clicks) AS clicks, SUM(impressions) AS impressions, ROUND(AVG(position), 1) AS position FROM search_metrics WHERE day >= date('now', ?) GROUP BY query ORDER BY clicks DESC, impressions DESC LIMIT 20`).bind(modifier).all(),
+    env.DB.prepare(`SELECT app_slug, COUNT(DISTINCT visitor_hash) AS visitors, COUNT(CASE WHEN event_type = 'page_view' THEN 1 END) AS views, COUNT(CASE WHEN event_type = 'conversion' THEN 1 END) AS conversions FROM direct_app_events WHERE day >= date('now', ?) GROUP BY app_slug ORDER BY views DESC`).bind(modifier).all(),
+  ]);
   return {
     daily: daily.results || [],
     apps: apps.results || [],
@@ -416,6 +513,10 @@ async function loadReport(env, days) {
     appPositions: appPositions.results || [],
     appTiming: appTiming.results || [],
     exploration: exploration.results?.[0] || {},
+    health: health.results || [],
+    enquiries: enquiries.results || [],
+    search: search.results || [],
+    directApps: directApps.results || [],
   };
 }
 
@@ -447,6 +548,7 @@ function adminShell(content, title = "Audience intelligence") {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(title)} | Trivion Apps</title><style>
   :root{color-scheme:dark;--bg:#07111f;--surface:#0e1b2f;--line:rgba(148,190,230,.18);--text:#f7fbff;--muted:#9eb2c9;--cyan:#67e8f9;--blue:#60a5fa;--mint:#6ee7b7}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 82% 5%,rgba(37,99,235,.23),transparent 34%),radial-gradient(circle at 8% 35%,rgba(45,212,191,.12),transparent 30%),var(--bg);color:var(--text);font-family:"Segoe UI",sans-serif}.shell{width:min(1180px,calc(100% - 36px));margin:auto}.top{display:flex;align-items:center;justify-content:space-between;padding:28px 0;border-bottom:1px solid var(--line)}.brand{font-weight:800;font-size:1.25rem;letter-spacing:-.03em}.brand i{display:inline-block;width:11px;height:11px;margin-right:10px;border-radius:3px;transform:rotate(45deg);background:linear-gradient(135deg,var(--cyan),var(--mint));box-shadow:0 0 18px var(--cyan)}a{color:inherit}.top nav{display:flex;gap:10px}.button,.range a{display:inline-flex;align-items:center;justify-content:center;padding:10px 15px;border:1px solid var(--line);border-radius:999px;text-decoration:none;color:var(--muted);background:rgba(255,255,255,.03)}main{padding:54px 0 80px}.eyebrow{color:var(--cyan);font-size:.78rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}h1{margin:13px 0 12px;font-size:clamp(2.3rem,6vw,5.1rem);line-height:.95;letter-spacing:-.065em;max-width:850px}.lede{color:var(--muted);font-size:1.05rem;line-height:1.7;max-width:720px}.range{display:flex;gap:8px;flex-wrap:wrap;margin:30px 0}.range a.active{color:#06121f;background:linear-gradient(135deg,var(--cyan),var(--mint));border-color:transparent;font-weight:800}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.metric,.panel{border:1px solid var(--line);background:linear-gradient(145deg,rgba(20,36,59,.9),rgba(9,20,36,.9));box-shadow:0 25px 70px rgba(0,0,0,.22);backdrop-filter:blur(20px)}.metric{padding:24px;border-radius:22px}.metric span{display:block;color:var(--muted);font-size:.82rem;margin-bottom:10px}.metric strong{font-size:2.2rem;letter-spacing:-.05em}.grids{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-top:18px}.panel{border-radius:26px;padding:24px;overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:18px}.panel h2{margin:0;font-size:1.25rem}.panel small{color:var(--muted)}table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{padding:13px 10px;text-align:left;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em}td.num{text-align:right;font-variant-numeric:tabular-nums}.bar{height:7px;margin-top:8px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden}.bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--blue),var(--cyan),var(--mint))}.empty{padding:34px 0;color:var(--muted);text-align:center}.privacy{margin-top:18px;color:var(--muted);font-size:.8rem}.gate{min-height:100vh;display:grid;place-items:center;padding:28px}.gate-card{width:min(520px,100%);padding:40px;border:1px solid var(--line);border-radius:28px;background:var(--surface);box-shadow:0 30px 90px rgba(0,0,0,.4)}.gate-card h1{font-size:2.4rem}.gate-card .button{margin-top:18px;color:#06121f;background:linear-gradient(135deg,var(--cyan),var(--mint));font-weight:800}@media(max-width:850px){.metrics{grid-template-columns:repeat(2,1fr)}.grids{grid-template-columns:1fr}}@media(max-width:520px){.metrics{grid-template-columns:1fr}.top{align-items:flex-start}.top nav{flex-direction:column}h1{font-size:2.8rem}.panel{padding:18px}th,td{padding:11px 6px;font-size:.78rem}}
   .metrics{grid-template-columns:repeat(3,1fr)}.wide{margin-top:18px}.rank{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:10px;background:rgba(103,232,249,.1);color:var(--cyan);font-weight:800}.app-name{display:flex;align-items:center;gap:11px}.spotlight{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 24px;margin:20px 0;border:1px solid rgba(103,232,249,.32);border-radius:22px;background:linear-gradient(110deg,rgba(37,99,235,.19),rgba(45,212,191,.1))}.spotlight strong{display:block;margin-top:5px;font-size:clamp(1.6rem,4vw,2.7rem);letter-spacing:-.05em}.spotlight .score{text-align:right;color:var(--cyan)}.panel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px}.panel-grid .panel{min-width:0}.panel-note{margin:3px 0 0;color:var(--muted);font-size:.8rem}.section-title{margin:38px 0 14px;font-size:1.5rem;letter-spacing:-.03em}.journey{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}.campaign{font-size:.78rem;color:var(--muted)}.freshness{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:.78rem}.freshness:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}@media(max-width:950px){.panel-grid{grid-template-columns:1fr 1fr}}@media(max-width:700px){.metrics,.panel-grid,.journey{grid-template-columns:1fr}.spotlight{align-items:flex-start;flex-direction:column}.spotlight .score{text-align:left}}
+  .panel svg{display:block;width:100%;height:auto;min-height:180px}.panel svg text{fill:var(--muted);font-size:12px}.panel input[type="date"]{margin-top:7px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:#0a1628;color:var(--text);font:inherit}.panel form label{color:var(--muted);font-size:.82rem}.panel form .button{cursor:pointer}
   </style></head><body>${content}</body></html>`;
 }
 
@@ -527,6 +629,17 @@ function reportPanel(title, note, rows, activityLabel = "Activity") {
   return `<article class="panel"><div class="panel-head"><div><small>Intelligence</small><h2>${escapeHtml(title)}</h2><p class="panel-note">${escapeHtml(note)}</p></div></div><table><thead><tr><th>Segment</th><th class="num">People</th><th class="num">${escapeHtml(activityLabel)}</th></tr></thead><tbody>${body}</tbody></table></article>`;
 }
 
+function trendChart(rows) {
+  const ordered = [...rows].reverse();
+  if (!ordered.length) return `<div class="empty">Traffic visualization will appear after visits are recorded.</div>`;
+  const width = 900;
+  const height = 220;
+  const maximum = Math.max(1, ...ordered.map((row) => Number(row.page_views || 0)));
+  const points = ordered.map((row, index) => `${ordered.length === 1 ? width / 2 : index / (ordered.length - 1) * width},${height - Number(row.page_views || 0) / maximum * (height - 30)}`).join(" ");
+  const labels = ordered.map((row, index) => `<text x="${ordered.length === 1 ? width / 2 : index / (ordered.length - 1) * width}" y="214" text-anchor="middle">${escapeHtml(row.day.slice(5))}</text>`).join("");
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Daily page-view trend"><defs><linearGradient id="trend" x1="0" x2="1"><stop stop-color="#60a5fa"/><stop offset="1" stop-color="#6ee7b7"/></linearGradient></defs><polyline fill="none" stroke="url(#trend)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" points="${points}"/>${labels}</svg>`;
+}
+
 function renderAdmin(report, days) {
   const base = renderAdminBase(report, days);
   const periods = report.periods || {};
@@ -564,7 +677,15 @@ function renderAdmin(report, days) {
   }).join("") : `<tr><td colspan="4" class="empty">Collecting impression and conversion data.</td></tr>`;
   const advanced = `<h2 class="section-title">Executive movement</h2><section class="metrics"><article class="metric"><span>Visitors vs prior period</span><strong>${growth(periods.current_visitors, periods.previous_visitors)}</strong><span>${number(periods.current_visitors)} current · ${number(periods.previous_visitors)} prior</span></article><article class="metric"><span>Sessions vs prior period</span><strong>${growth(periods.current_sessions, periods.previous_sessions)}</strong><span>${number(periods.current_sessions)} current · ${number(periods.previous_sessions)} prior</span></article><article class="metric"><span>Active in last 5 minutes</span><strong>${number(report.live.visitors)}</strong><span>${number(report.live.sessions)} live sessions</span></article><article class="metric"><span>App conversion</span><strong>${number(appConversion, 1)}%</strong><span>Card view to application launch</span></article><article class="metric"><span>Contact conversion</span><strong>${number(contactConversion, 1)}%</strong><span>${number(contactSubmits)} completed of ${number(contactStarts)} starts</span></article><article class="metric"><span>7-day return</span><strong>${number(cohortSize ? Number(retention.returned_7d || 0) / cohortSize * 100 : 0, 1)}%</strong><span>30-day: ${number(cohortSize ? Number(retention.returned_30d || 0) / cohortSize * 100 : 0, 1)}%</span></article></section><h2 class="section-title">Application conversion</h2><section class="panel wide"><div class="panel-head"><div><small>Portfolio funnel</small><h2>Impression-to-interest performance</h2><p class="panel-note">Shows which visible application cards turn attention into launches.</p></div></div><table><thead><tr><th>Application</th><th class="num">Card viewers</th><th class="num">Interested people</th><th class="num">Conversion</th></tr></thead><tbody>${signalRows}</tbody></table></section><h2 class="section-title">Engagement and navigation</h2><section class="panel-grid">${reportPanel("Scroll depth", "How far visitors travel through the flagship page.", report.scrollDepth, "Sessions")}${reportPanel("Section attention", "Total attentive seconds by page section.", report.sections, "Seconds")}${reportPanel("Navigation actions", "The most selected internal navigation controls.", report.navigation, "Clicks")}${reportPanel("Application sequences", "Common transitions between two application launches.", report.transitions, "Journeys")}${reportPanel("Traffic by hour", "UTC session distribution by hour.", report.hourly, "Sessions")}${reportPanel("Traffic by weekday", "The strongest days for portfolio discovery.", report.weekdays, "Sessions")}</section><h2 class="section-title">Retention and audience quality</h2><section class="panel-grid">${reportPanel("Visitor frequency", "One-time, returning, loyal, and highly engaged visitors.", report.frequency, "Sessions")}${reportPanel("Acquisition cohorts", "Weekly first-visit groups and observed returns.", report.cohorts, "Returned")}${dimensionPanel("Languages", "Browser language preferences.", report.languages)}${reportPanel("App interest by country", "Leading application and country combinations.", report.appCountries, "Launches")}${reportPanel("App interest by device", "Application demand across device classes.", report.appDevices, "Launches")}${reportPanel("App interest by source", "Applications launched from each referral source.", report.appSources, "Launches")}</section><h2 class="section-title">Experience and reliability</h2><section class="metrics"><article class="metric"><span>Average LCP</span><strong>${number(performance.avg_lcp)}ms</strong><span>${number(performance.good_lcp, 1)}% at or below 2.5s</span></article><article class="metric"><span>Average INP</span><strong>${number(performance.avg_inp)}ms</strong><span>${number(performance.good_inp, 1)}% at or below 200ms</span></article><article class="metric"><span>Average CLS</span><strong>${number(performance.avg_cls, 3)}</strong><span>${number(performance.good_cls, 1)}% at or below 0.1</span></article><article class="metric"><span>Average page load</span><strong>${number(performance.avg_load)}ms</strong><span>${number(performance.samples)} field samples</span></article><article class="metric"><span>JavaScript errors</span><strong>${number(events.javascript_errors)}</strong><span>Unhandled runtime problems</span></article><article class="metric"><span>Resource failures</span><strong>${number(events.resource_errors)}</strong><span>Images, scripts, or styles</span></article></section><section class="panel-grid">${reportPanel("Load time by device", "Average field load time for each device class.", report.performanceDevices, "Avg ms")}${reportPanel("Connection quality", "Reported effective network categories.", report.connections, "Samples")}${reportPanel("Viewport sizes", "Most common screen viewport dimensions.", report.viewports, "Samples")}</section><h2 class="section-title">Privacy and governance</h2><section class="journey">${reportPanel("Privacy choices", "Anonymous opt-in and opt-out preference changes.", report.consent, "Changes")}${reportPanel("Report access", "Hashed owner, denied, and signed-out access events.", report.adminAccess, "Attempts")}</section>`;
   const portfolioAdvanced = `<h2 class="section-title">Portfolio momentum</h2><section class="metrics"><article class="metric"><span>Top app today</span><strong>${escapeHtml(todayLeader ? APP_NAMES[todayLeader.app_slug] : "Pending")}</strong><span>${number(todayLeader?.today)} launches</span></article><article class="metric"><span>Top app this week</span><strong>${escapeHtml(weekLeader ? APP_NAMES[weekLeader.app_slug] : "Pending")}</strong><span>${number(weekLeader?.week)} launches</span></article><article class="metric"><span>Top app this month</span><strong>${escapeHtml(monthLeader ? APP_NAMES[monthLeader.app_slug] : "Pending")}</strong><span>${number(monthLeader?.month)} launches</span></article><article class="metric"><span>Apps per explorer</span><strong>${number(report.exploration.avg_apps, 1)}</strong><span>${number(report.exploration.multi_app_visitors)} multi-app visitors</span></article></section><section class="panel-grid">${reportPanel("Fastest momentum", "Launch change compared with the previous matching period.", trendRows, "% change")}${reportPanel("First and second choices", "Applications selected first and second in a session.", report.appPositions, "Selections")}${reportPanel("Time to launch", "Average seconds from entry to application launch.", report.appTiming, "Seconds")}</section>`;
-  return base.replace('<section class="spotlight">', `${executiveBrief}<section class="spotlight">`).replace('<p class="privacy">', `${advanced}${portfolioAdvanced}<p class="privacy">`);
+  const healthRows = Object.keys(APP_NAMES).map((slug) => {
+    const row = report.health.find((item) => item.app_slug === slug);
+    return `<tr><td><strong>${escapeHtml(APP_NAMES[slug])}</strong></td><td>${row ? (Number(row.available) ? "Available" : "Unavailable") : "Pending"}</td><td class="num">${number(row?.status_code)}</td><td class="num">${number(row?.response_ms)}ms</td></tr>`;
+  }).join("");
+  const enquiryRows = report.enquiries.length ? report.enquiries.map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><div class="campaign">${escapeHtml(row.email)}${row.company ? ` · ${escapeHtml(row.company)}` : ""}</div></td><td>${escapeHtml(String(row.message).slice(0, 160))}</td><td>${escapeHtml(row.status)}</td><td>${escapeHtml(row.created_at)}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">No enquiries received yet.</td></tr>`;
+  const searchRows = report.search.length ? report.search.map((row) => `<tr><td><strong>${escapeHtml(row.label)}</strong></td><td class="num">${number(row.clicks)}</td><td class="num">${number(row.impressions)}</td><td class="num">${number(row.position, 1)}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">Search Console data is ready for authorization or import.</td></tr>`;
+  const directRows = report.directApps.length ? report.directApps.map((row) => `<tr><td><strong>${escapeHtml(APP_NAMES[row.app_slug] || row.app_slug)}</strong></td><td class="num">${number(row.visitors)}</td><td class="num">${number(row.views)}</td><td class="num">${number(row.conversions)}</td></tr>`).join("") : `<tr><td colspan="4" class="empty">Direct-app receiver is ready; app-side installation is still required.</td></tr>`;
+  const operationsAdvanced = `<h2 class="section-title">Traffic visualization</h2><section class="panel wide">${trendChart(report.daily)}</section><h2 class="section-title">Custom reporting</h2><section class="panel wide"><form action="/admin/custom" method="get" style="display:flex;gap:14px;align-items:end;flex-wrap:wrap"><label>From<br><input type="date" name="from" required></label><label>To<br><input type="date" name="to" required></label><button class="button" type="submit">Generate exact-range report</button><a class="button" href="/admin/backup.json">Download analytics backup</a></form></section><h2 class="section-title">Application availability</h2><section class="panel wide"><div class="panel-head"><div><small>Automated hourly checks</small><h2>Portfolio health</h2><p class="panel-note">Availability, HTTP status, and response time for all applications.</p></div></div><table><thead><tr><th>Application</th><th>Status</th><th class="num">HTTP</th><th class="num">Response</th></tr></thead><tbody>${healthRows}</tbody></table></section><h2 class="section-title">Direct application analytics</h2><section class="panel wide"><table><thead><tr><th>Application</th><th class="num">Visitors</th><th class="num">Views</th><th class="num">Conversions</th></tr></thead><tbody>${directRows}</tbody></table></section><h2 class="section-title">Search intelligence</h2><section class="panel wide"><div class="panel-head"><div><small>Search Console integration</small><h2>Organic discovery</h2><p class="panel-note">Import API-formatted JSON containing a <code>rows</code> array after exporting from Search Console.</p></div><form id="search-import-form"><input id="search-import-file" type="file" accept="application/json,.json" required><button class="button" type="submit">Import search data</button><span id="search-import-status" class="campaign"></span></form></div><table><thead><tr><th>Search query</th><th class="num">Clicks</th><th class="num">Impressions</th><th class="num">Position</th></tr></thead><tbody>${searchRows}</tbody></table></section><h2 class="section-title">Enquiries</h2><section class="panel wide"><div class="panel-head"><div><small>Secure contact storage</small><h2>Latest enquiries</h2></div><a class="button" href="/admin/enquiries.csv">Export enquiries</a></div><table><thead><tr><th>Contact</th><th>Message</th><th>Status</th><th>Received</th></tr></thead><tbody>${enquiryRows}</tbody></table></section><script>document.getElementById("search-import-form")?.addEventListener("submit",async(event)=>{event.preventDefault();const file=document.getElementById("search-import-file").files[0];const status=document.getElementById("search-import-status");if(!file)return;status.textContent="Importing...";try{const payload=JSON.parse(await file.text());const response=await fetch("/api/search-console/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw new Error(result.error||"Import failed");status.textContent="Imported "+result.imported+" rows";setTimeout(()=>location.reload(),700)}catch(error){status.textContent=error.message}})</script>`;
+  return base.replace('<section class="spotlight">', `${executiveBrief}<section class="spotlight">`).replace('<p class="privacy">', `${advanced}${portfolioAdvanced}${operationsAdvanced}<p class="privacy">`);
 }
 
 function csvCell(value) {
@@ -599,6 +720,48 @@ function renderCsv(report) {
   rows.push(["performance", "INP", "", report.performance.avg_inp || 0, `${report.performance.good_inp || 0}% good`].map(csvCell).join(","));
   rows.push(["performance", "CLS", "", report.performance.avg_cls || 0, `${report.performance.good_cls || 0}% good`].map(csvCell).join(","));
   return rows.join("\n");
+}
+
+function renderPrivacy() {
+  return adminShell(`<header class="top shell"><div class="brand"><i></i>Trivion Apps</div><nav><a class="button" href="/">Return to site</a></nav></header><main class="shell"><div class="eyebrow">Privacy policy</div><h1>Clear, limited data use.</h1><p class="lede">Effective ${dayKey()}. This policy explains how Trivion Apps handles information on its flagship website.</p><section class="panel wide"><h2>Anonymous analytics</h2><p class="lede">We measure visits, application-card interactions, approximate country and region, browser, device, operating system, referral hostname, campaign tags, page engagement, performance, and errors. Random browser and session identifiers are transformed into one-way hashes. We do not retain raw IP addresses, visitor names, email addresses, full referral URLs, or personal query-string data for analytics.</p><h2>Enquiries</h2><p class="lede">When you submit the contact form, we store the name, email, company, and message you provide so we can respond. Submission requires explicit consent. Enquiry records are available only to the site owner.</p><h2>Choices and retention</h2><p class="lede">Use “Analytics choices” in the site footer to disable anonymous analytics on your browser. Analytics and operational records are automatically retained for up to 395 days. Enquiries may be retained while needed to respond and maintain business records.</p><h2>Service providers</h2><p class="lede">The website uses ChatGPT Sites and its infrastructure for hosting, security, databases, and object storage. Individual applications may publish their own additional privacy information.</p><h2>Contact</h2><p class="lede">Questions or deletion requests can be sent to <a href="mailto:support@trivionapps.com">support@trivionapps.com</a>.</p></section></main>`, "Privacy policy");
+}
+
+async function loadCustomRange(env, from, to) {
+  const [daily, apps, summary] = await Promise.all([
+    env.DB.prepare(`SELECT day, COUNT(*) AS unique_visitors, SUM(page_views) AS page_views FROM daily_visitors WHERE day BETWEEN ? AND ? GROUP BY day ORDER BY day DESC`).bind(from, to).all(),
+    env.DB.prepare(`SELECT app_slug, COUNT(DISTINCT visitor_hash) AS unique_visitors, SUM(visits) AS launches FROM app_visits WHERE day BETWEEN ? AND ? GROUP BY app_slug ORDER BY launches DESC`).bind(from, to).all(),
+    env.DB.prepare(`SELECT COUNT(*) AS sessions, COUNT(DISTINCT visitor_hash) AS visitors, ROUND(AVG(MAX(0, (julianday(last_seen) - julianday(started_at)) * 86400)), 1) AS avg_seconds FROM visit_sessions WHERE day BETWEEN ? AND ?`).bind(from, to).all(),
+  ]);
+  return { daily: daily.results || [], apps: apps.results || [], summary: summary.results?.[0] || {} };
+}
+
+function renderCustomRange(report, from, to) {
+  const appRows = report.apps.length ? report.apps.map((row) => `<tr><td><strong>${escapeHtml(APP_NAMES[row.app_slug] || row.app_slug)}</strong></td><td class="num">${number(row.unique_visitors)}</td><td class="num">${number(row.launches)}</td></tr>`).join("") : `<tr><td colspan="3" class="empty">No application activity.</td></tr>`;
+  return adminShell(`<header class="top shell"><div class="brand"><i></i>Exact-range report</div><nav><a class="button" href="/admin">Back to analytics</a></nav></header><main class="shell"><div class="eyebrow">${escapeHtml(from)} to ${escapeHtml(to)}</div><h1>Custom portfolio report.</h1><section class="metrics"><article class="metric"><span>Visitors</span><strong>${number(report.summary.visitors)}</strong></article><article class="metric"><span>Sessions</span><strong>${number(report.summary.sessions)}</strong></article><article class="metric"><span>Average session</span><strong>${duration(report.summary.avg_seconds)}</strong></article></section><section class="panel wide"><h2>Application interest</h2><table><thead><tr><th>Application</th><th class="num">People</th><th class="num">Launches</th></tr></thead><tbody>${appRows}</tbody></table></section><section class="panel wide">${trendChart(report.daily)}</section></main>`, "Custom analytics report");
+}
+
+async function analyticsBackup(env) {
+  const [daily, apps, health, search] = await Promise.all([
+    env.DB.prepare(`SELECT day, COUNT(*) AS unique_visitors, SUM(page_views) AS page_views FROM daily_visitors GROUP BY day ORDER BY day`).all(),
+    env.DB.prepare(`SELECT day, app_slug, COUNT(DISTINCT visitor_hash) AS unique_visitors, SUM(visits) AS launches FROM app_visits GROUP BY day, app_slug ORDER BY day, app_slug`).all(),
+    env.DB.prepare(`SELECT day, app_slug, status_code, response_ms, available FROM app_health_checks ORDER BY checked_at DESC LIMIT 1000`).all(),
+    env.DB.prepare(`SELECT day, query, page, country, device, impressions, clicks, position FROM search_metrics ORDER BY day DESC LIMIT 5000`).all(),
+  ]);
+  return { generatedAt: new Date().toISOString(), retentionDays: 395, daily: daily.results || [], applications: apps.results || [], health: health.results || [], search: search.results || [] };
+}
+
+function enquiriesCsv(rows) {
+  return ["id,received,name,email,company,status,message", ...rows.map((row) => [row.id, row.created_at, row.name, row.email, row.company, row.status, row.message].map(csvCell).join(","))].join("\n");
+}
+
+async function importSearchMetrics(request, env) {
+  let payload;
+  try { payload = await request.json(); } catch { return json({ error: "Upload must contain valid JSON data" }, 400); }
+  const rows = Array.isArray(payload.rows) ? payload.rows.slice(0, 5000) : [];
+  if (!rows.length) return json({ error: "No Search Console rows supplied" }, 400);
+  const statements = rows.map((row) => env.DB.prepare(`INSERT INTO search_metrics (day, query, page, country, device, impressions, clicks, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).bind(cleanDimension(row.day, dayKey(), 10), cleanDimension(row.query, "Unknown", 300), cleanDimension(row.page, "/", 300), cleanDimension(row.country), cleanDimension(row.device), Math.max(0, Number(row.impressions) || 0), Math.max(0, Number(row.clicks) || 0), Math.max(0, Number(row.position) || 0)));
+  await env.DB.batch(statements);
+  return json({ ok: true, imported: statements.length }, 201);
 }
 
 function assetResponse(pathname) {
@@ -637,7 +800,41 @@ export default {
       }
     }
 
-    if (request.method === "GET" && ["/admin", "/admin/", "/admin/export.csv"].includes(url.pathname)) {
+    if (request.method === "POST" && url.pathname === "/api/enquiries") {
+      return receiveEnquiry(request, env);
+    }
+
+    if (url.pathname === "/api/direct-events" && request.method === "OPTIONS") {
+      const origin = request.headers.get("origin") || "";
+      let approved = false;
+      try {
+        approved = Object.values(APP_URLS).some((appUrl) => new URL(appUrl).hostname === new URL(origin).hostname);
+      } catch {}
+      return approved
+        ? new Response(null, { status: 204, headers: directEventHeaders(origin) })
+        : json({ error: "Unapproved application origin" }, 403);
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/direct-events") {
+      return receiveDirectAppEvent(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/search-console/import") {
+      const owner = currentOwner(request);
+      const gate = ownerGate(request);
+      const audit = logAdminAccess(request, env, owner.allowed ? "owner" : owner.signedIn ? "denied" : "signed_out").catch((error) => console.error("admin_audit_failed", error));
+      if (ctx?.waitUntil) ctx.waitUntil(audit); else await audit;
+      if (gate) return gate;
+      if (!env.DB) return json({ error: "Reporting database is unavailable" }, 503);
+      return importSearchMetrics(request, env);
+    }
+
+    if (request.method === "GET" && url.pathname === "/privacy") {
+      return new Response(renderPrivacy(), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300", "x-content-type-options": "nosniff" } });
+    }
+
+    const adminPaths = ["/admin", "/admin/", "/admin/export.csv", "/admin/custom", "/admin/backup.json", "/admin/enquiries.csv"];
+    if (request.method === "GET" && adminPaths.includes(url.pathname)) {
       const owner = currentOwner(request);
       const gate = ownerGate(request);
       const outcome = owner.allowed ? "owner" : owner.signedIn ? "denied" : "signed_out";
@@ -645,6 +842,22 @@ export default {
       if (ctx?.waitUntil) ctx.waitUntil(audit); else await audit;
       if (gate) return gate;
       if (!env.DB) return new Response(adminShell(`<main class="gate"><section class="gate-card"><div class="eyebrow">Temporarily unavailable</div><h1>Analytics is not connected.</h1><p class="lede">The reporting database is unavailable. Please try again shortly.</p></section></main>`), { status: 503, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+      if (url.pathname === "/admin/custom") {
+        const from = url.searchParams.get("from") || "";
+        const to = url.searchParams.get("to") || "";
+        const validDates = /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to);
+        const span = validDates ? (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000 : -1;
+        if (!validDates || span < 0 || span > 395) return json({ error: "Choose a valid date range of 395 days or less" }, 400);
+        const customReport = await loadCustomRange(env, from, to);
+        return new Response(renderCustomRange(customReport, from, to), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" } });
+      }
+      if (url.pathname === "/admin/backup.json") {
+        return new Response(JSON.stringify(await analyticsBackup(env), null, 2), { headers: { "content-type": "application/json; charset=utf-8", "content-disposition": `attachment; filename="trivion-analytics-backup-${dayKey()}.json"`, "cache-control": "no-store" } });
+      }
+      if (url.pathname === "/admin/enquiries.csv") {
+        const rows = await env.DB.prepare(`SELECT id, created_at, name, email, company, status, message FROM enquiries ORDER BY created_at DESC`).all();
+        return new Response(enquiriesCsv(rows.results || []), { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="trivion-enquiries-${dayKey()}.csv"`, "cache-control": "no-store" } });
+      }
       const requestedDays = Number(url.searchParams.get("days"));
       const days = [7, 30, 90].includes(requestedDays) ? requestedDays : 30;
       const report = await loadReport(env, days);

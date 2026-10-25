@@ -109,3 +109,59 @@ export const adminAccessLogs = sqliteTable("admin_access_logs", {
   accountHash: text("account_hash").notNull(),
   outcome: text("outcome").notNull(),
 });
+
+export const enquiries = sqliteTable("enquiries", {
+    id: text("id").primaryKey(),
+    createdAt: text("created_at").notNull(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    company: text("company").notNull(),
+    message: text("message").notNull(),
+    visitorHash: text("visitor_hash").notNull(),
+    status: text("status").notNull().default("new"),
+    consent: integer("consent", { mode: "boolean" }).notNull().default(false),
+  },
+  (table) => [index("enquiries_created_idx").on(table.createdAt)],
+);
+
+export const appHealthChecks = sqliteTable("app_health_checks", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    day: text("day").notNull(),
+    checkedAt: text("checked_at").notNull(),
+    appSlug: text("app_slug").notNull(),
+    url: text("url").notNull(),
+    statusCode: integer("status_code").notNull(),
+    responseMs: integer("response_ms").notNull(),
+    available: integer("available", { mode: "boolean" }).notNull(),
+    error: text("error").notNull(),
+  },
+  (table) => [index("app_health_app_time_idx").on(table.appSlug, table.checkedAt)],
+);
+
+export const directAppEvents = sqliteTable("direct_app_events", {
+    eventHash: text("event_hash").primaryKey(),
+    day: text("day").notNull(),
+    createdAt: text("created_at").notNull(),
+    appSlug: text("app_slug").notNull(),
+    visitorHash: text("visitor_hash").notNull(),
+    sessionHash: text("session_hash").notNull(),
+    eventType: text("event_type").notNull(),
+    label: text("label").notNull(),
+    value: real("value").notNull().default(0),
+  },
+  (table) => [index("direct_app_events_day_app_idx").on(table.day, table.appSlug)],
+);
+
+export const searchMetrics = sqliteTable("search_metrics", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    day: text("day").notNull(),
+    query: text("query").notNull(),
+    page: text("page").notNull(),
+    country: text("country").notNull(),
+    device: text("device").notNull(),
+    impressions: integer("impressions").notNull().default(0),
+    clicks: integer("clicks").notNull().default(0),
+    position: real("position").notNull().default(0),
+  },
+  (table) => [index("search_metrics_day_idx").on(table.day)],
+);
